@@ -1,0 +1,148 @@
+version: '3'
+
+vars:
+  # GENERAL
+  GOBIN: "$(pwd)/bin"
+
+  # DB
+  DB_DSN: "user=postgres dbname=raft-kv password=postgres sslmode=disable"
+  MIGRATION_DIR: "./migrations"
+
+  # DOCKER
+  DOCKER_IMAGE: "escalopa/raft-kv"
+
+tasks:
+  run:
+    cmds:
+      - go run ./cmd/raft-kv/. --config .catalystgo/config-development.yml
+
+  mock:
+    cmds:
+      - "{{.GOBIN}}/mockgen -source=./internal/mock/mock.go -destination=./internal/mock/mock.go -package=mock"
+
+  format:
+    cmds:
+      - task: go_files
+        vars: { COMMAND: "gofmt -w  {} +"}
+      - task: go_files
+        vars: { COMMAND: "{{.GOBIN}}/goimports -w  {} +"}
+
+  test:
+    cmds:
+      - go test -v -cover -json -coverprofile=coverage.out
+        $(go list ./... | grep -Ewv "(mock$|cmd$)") | {{.GOBIN}}/gotestfmt
+
+  lint:
+    cmds:
+      - "{{.GOBIN}}/revive
+        -config revive.toml
+        -formatter friendly
+        -exclude ./mock
+        -exclude ./internal/pb
+        -exclude vendor.proto
+        ./..."
+
+  pre-commit:
+    desc: "Run all pre-commit tasks"
+    cmds:
+      - task: format
+      - task: lint
+      - task: test
+
+# PROTO & DEPS
+
+  generate:
+    cmds:
+      # Generate
+      - "{{.GOBIN}}/buf generate --template buf.gen.vendor.yaml"
+      - "{{.GOBIN}}/buf generate --template buf.gen.yaml"
+      - "{{.GOBIN}}/catalystgo implement --input pkg --output internal/api"
+      - go mod tidy
+    deps:
+      - vendor
+
+  vendor:
+    cmds:
+      # Check if protosync.yml exists if not call protosync init
+      - if [ ! -f protosync.yml ]; then {{.GOBIN}}/protosync init; fi
+      - "{{.GOBIN}}/protosync vendor --file protosync.yml"
+    deps:
+      - deps
+
+  deps:
+    cmds:
+      # GRPC
+      - GOBIN={{.GOBIN}} go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.16.0
+      - GOBIN={{.GOBIN}} go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.16.0
+      - GOBIN={{.GOBIN}} go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto@v0.6.0
+      - GOBIN={{.GOBIN}} go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.1
+      - GOBIN={{.GOBIN}} go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
+      - GOBIN={{.GOBIN}} go install github.com/bufbuild/buf/cmd/buf@v1.33.0
+
+      # CATALYSTGO
+      - GOBIN={{.GOBIN}} go install github.com/catalystgo/cli/cmd/catalystgo@v1.0.1
+      - GOBIN={{.GOBIN}} go install github.com/catalystgo/cli/cmd/protoc-gen-catalystgo@v1.0.1
+      - GOBIN={{.GOBIN}} go install github.com/catalystgo/protosync@v0.0.2
+
+      # TOOLS
+      - GOBIN={{.GOBIN}} go install github.com/pressly/goose/v3/cmd/goose@v3.20.0
+      - GOBIN={{.GOBIN}} go install golang.org/x/tools/cmd/goimports@v0.19.0
+      - GOBIN={{.GOBIN}} go install github.com/mgechev/revive@v1.3.7
+      - GOBIN={{.GOBIN}} go install github.com/google/yamlfmt/cmd/yamlfmt@v0.12.1
+      - GOBIN={{.GOBIN}} go install github.com/golang/mock/mockgen@v1.6.0
+      - GOBIN={{.GOBIN}} go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
+
+# DOCKER COMPOSE
+
+  docker-up:
+    cmds:
+      - docker compose -f .deployment/docker-compose.yml up -d
+
+  docker-down:
+    cmds:
+      - docker compose -f .deployment/docker-compose.yml down
+
+# DOCKER
+
+  docker-build:
+    cmds:
+      - docker build --tag {{.DOCKER_IMAGE}}:{{.VERSION}} .
+        --no-cache
+
+  docker-push:
+    cmds:
+      - docker push {{.DOCKER_IMAGE}}:{{.VERSION}}
+
+  docker-release:
+    cmds:
+      - task: docker-build
+      - task: docker-push
+
+# MIGRATIONS
+
+  goose-add:
+    cmds:
+    - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} create fix_me sql"
+
+  goose-status:
+    cmds:
+      - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" status"
+
+  goose-up:
+    cmds:
+    - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" up"
+
+  goose-down:
+    cmds:
+      - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" down"
+
+# INTERNAL COMMANDS
+
+  go_files:
+    desc: "Return all .go files and run .COMMAND on them"
+    internal: true
+    cmds:
+     - find .
+        -name "*.go"
+        -not -path ./mock
+        -exec {{.COMMAND}};

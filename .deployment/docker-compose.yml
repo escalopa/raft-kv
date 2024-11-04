@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.13
+    container_name: etcd
+    restart: unless-stopped
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - INITIAL_CLUSTER_TOKEN=etcd-cluster-token
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd_data:/etcd-data
+
+  vault:
+    image: vault:1.9.2
+    container_name: vault
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_DEV_ROOT_TOKEN_ID=root
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    volumes:
+      - vault_data:/vault/data
+
+  jaeger:
+    container_name: "jaeger"
+    restart: unless-stopped
+    image: jaegertracing/all-in-one:1.57.0
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "4318:4318"
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: raft-kv
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  etcd_data:
+  vault_data:
+  postgres_data:

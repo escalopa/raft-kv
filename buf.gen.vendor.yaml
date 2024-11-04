@@ -1,0 +1,27 @@
+version: v2
+
+managed:
+  enabled: true
+
+plugins:
+  - local: bin/protoc-gen-go
+    out: internal/pb
+    opt:
+      - paths=source_relative
+
+  - local: bin/protoc-gen-go-grpc
+    out: internal/pb
+    opt:
+      - paths=source_relative
+
+  - local: bin/protoc-gen-go-vtproto
+    out: internal/pb
+    opt:
+      - paths=source_relative
+      - features=marshal+unmarshal+size
+
+inputs:
+  - directory: vendor.proto
+    exclude_paths:
+      - vendor.proto/google
+      - vendor.proto/protoc-gen-openapiv2

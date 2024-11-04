@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package kv_pb;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "protoc-gen-openapiv2/options/openapiv2.proto";
+
+option go_package = "github.com/escalopa/raft-kv/pkg/kv";
+
+service KV {
+  rpc Get(GetRequest) returns (GetResponse){
+    option (google.api.http) = {
+      get: "/kv/{key}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Get a value by key"
+    };
+  }
+  
+  rpc Set(SetRequest) returns (SetResponse){
+    option (google.api.http) = {
+      post: "/kv"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Set a value by key"
+    };
+  }
+
+  rpc Del(DelRequest) returns (DelResponse){
+    option (google.api.http) = {
+      delete: "/kv/{key}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Delete a value by key"
+    };
+  }
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  string value = 1;
+}
+
+message SetRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message SetResponse {
+}
+
+message DelRequest {
+  string key = 1;
+}
+
+message DelResponse {
+}

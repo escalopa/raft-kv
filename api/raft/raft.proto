@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package raft_pb;
+
+import "google/api/annotations.proto";
+import "google/api/http.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "protoc-gen-openapiv2/options/openapiv2.proto";
+
+option go_package = "github.com/escalopa/raft-kv/pkg/raft";
+
+service Raft {
+  rpc AppendEntry(AppendEntryRequest) returns (AppendEntryResponse){
+    option (google.api.http) = {
+      post: "/raft/append-entry"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Append entries to the log"
+    };
+  }
+
+  rpc Vote(VoteRequest) returns (VoteResponse){
+    option (google.api.http) = {
+      post: "/raft/vote"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Vote for a candidate"
+    };
+  }
+}
+
+message AppendEntryRequest{
+  uint64 term = 1;
+  uint32 leader_id = 2;
+  uint64 prev_log_term = 3;
+  uint64 prev_log_index = 4;
+  repeated bytes entries = 5;
+}
+
+message AppendEntryResponse{
+  uint64 term = 1;
+  bool success = 2;
+}
+
+
+message VoteRequest {
+  uint64 term = 1;
+  uint32 candidate_id = 2;
+  uint64 log_term = 3;
+  uint64 log_index = 4;
+}
+
+message VoteResponse {
+  uint64 term = 1;
+  bool vote_granted = 2;
+}

@@ -1,0 +1,189 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "raft/raft.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Raft"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/raft/append-entry": {
+      "post": {
+        "description": "Append entries to the log",
+        "operationId": "Raft_AppendEntry",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/raft_pbAppendEntryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/raft_pbAppendEntryRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Raft"
+        ]
+      }
+    },
+    "/raft/vote": {
+      "post": {
+        "description": "Vote for a candidate",
+        "operationId": "Raft_Vote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/raft_pbVoteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/raft_pbVoteRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Raft"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "raft_pbAppendEntryRequest": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "leaderId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prevLogTerm": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "prevLogIndex": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "raft_pbAppendEntryResponse": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "success": {
+          "type": "boolean"
+        }
+      }
+    },
+    "raft_pbVoteRequest": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "candidateId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "logTerm": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "logIndex": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "raft_pbVoteResponse": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "voteGranted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

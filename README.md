@@ -1,2 +1,3 @@
-# raft-me-up
-A raft client to illustrate consensus mechanism
+# raft-kv 🗃️
+
+A raft-based key-value store.
