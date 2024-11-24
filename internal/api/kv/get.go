@@ -1,13 +1,16 @@
 package kv
 
 import (
-  "context"
+	"context"
 
-  desc "github.com/escalopa/raft-kv/pkg/kv"
-  "google.golang.org/grpc/codes"
-  "google.golang.org/grpc/status"
+	"github.com/escalopa/raft-kv/internal/core"
+	desc "github.com/escalopa/raft-kv/pkg/kv"
 )
 
 func (i *Implementation) Get(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, error) {
-  return nil, status.Errorf(codes.Unimplemented, `method "Get" not implemented`)
+	value, err := i.srv.Get(ctx, req.GetKey())
+	if err != nil {
+		return nil, core.ToGrpcError(err)
+	}
+	return &desc.GetResponse{Value: value}, nil
 }

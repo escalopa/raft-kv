@@ -7,8 +7,8 @@ import (
 	desc "github.com/escalopa/raft-kv/pkg/raft"
 )
 
-func (i *Implementation) AppendEntry(ctx context.Context, req *desc.AppendEntryRequest) (*desc.AppendEntryResponse, error) {
-	resp, err := i.srv.AppendEntry(ctx, req)
+func (i *Implementation) RequestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
+	resp, err := i.srv.RequestVote(ctx, req)
 	if err != nil {
 		return nil, core.ToGrpcError(err)
 	}

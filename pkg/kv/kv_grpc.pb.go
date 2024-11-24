@@ -8,6 +8,7 @@ package kv
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,158 +19,158 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// KVClient is the client API for KV service.
+// KVServiceClient is the client API for KVService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type KVClient interface {
+type KVServiceClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
 	Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error)
 }
 
-type kVClient struct {
+type kVServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewKVClient(cc grpc.ClientConnInterface) KVClient {
-	return &kVClient{cc}
+func NewKVServiceClient(cc grpc.ClientConnInterface) KVServiceClient {
+	return &kVServiceClient{cc}
 }
 
-func (c *kVClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *kVServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, "/kv_pb.KV/Get", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/kv_pb.KVService/Get", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *kVClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+func (c *kVServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
 	out := new(SetResponse)
-	err := c.cc.Invoke(ctx, "/kv_pb.KV/Set", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/kv_pb.KVService/Set", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *kVClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error) {
+func (c *kVServiceClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error) {
 	out := new(DelResponse)
-	err := c.cc.Invoke(ctx, "/kv_pb.KV/Del", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/kv_pb.KVService/Del", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// KVServer is the server API for KV service.
-// All implementations must embed UnimplementedKVServer
+// KVServiceServer is the server API for KVService service.
+// All implementations must embed UnimplementedKVServiceServer
 // for forward compatibility
-type KVServer interface {
+type KVServiceServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Set(context.Context, *SetRequest) (*SetResponse, error)
 	Del(context.Context, *DelRequest) (*DelResponse, error)
-	mustEmbedUnimplementedKVServer()
+	mustEmbedUnimplementedKVServiceServer()
 }
 
-// UnimplementedKVServer must be embedded to have forward compatible implementations.
-type UnimplementedKVServer struct {
+// UnimplementedKVServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedKVServiceServer struct {
 }
 
-func (UnimplementedKVServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedKVServiceServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedKVServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
+func (UnimplementedKVServiceServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedKVServer) Del(context.Context, *DelRequest) (*DelResponse, error) {
+func (UnimplementedKVServiceServer) Del(context.Context, *DelRequest) (*DelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Del not implemented")
 }
-func (UnimplementedKVServer) mustEmbedUnimplementedKVServer() {}
+func (UnimplementedKVServiceServer) mustEmbedUnimplementedKVServiceServer() {}
 
-// UnsafeKVServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to KVServer will
+// UnsafeKVServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KVServiceServer will
 // result in compilation errors.
-type UnsafeKVServer interface {
-	mustEmbedUnimplementedKVServer()
+type UnsafeKVServiceServer interface {
+	mustEmbedUnimplementedKVServiceServer()
 }
 
-func RegisterKVServer(s grpc.ServiceRegistrar, srv KVServer) {
-	s.RegisterService(&KV_ServiceDesc, srv)
+func RegisterKVServiceServer(s grpc.ServiceRegistrar, srv KVServiceServer) {
+	s.RegisterService(&KVService_ServiceDesc, srv)
 }
 
-func _KV_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KVService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KVServer).Get(ctx, in)
+		return srv.(KVServiceServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kv_pb.KV/Get",
+		FullMethod: "/kv_pb.KVService/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVServer).Get(ctx, req.(*GetRequest))
+		return srv.(KVServiceServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KV_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KVService_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KVServer).Set(ctx, in)
+		return srv.(KVServiceServer).Set(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kv_pb.KV/Set",
+		FullMethod: "/kv_pb.KVService/Set",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVServer).Set(ctx, req.(*SetRequest))
+		return srv.(KVServiceServer).Set(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KV_Del_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KVService_Del_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DelRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KVServer).Del(ctx, in)
+		return srv.(KVServiceServer).Del(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kv_pb.KV/Del",
+		FullMethod: "/kv_pb.KVService/Del",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVServer).Del(ctx, req.(*DelRequest))
+		return srv.(KVServiceServer).Del(ctx, req.(*DelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// KV_ServiceDesc is the grpc.ServiceDesc for KV service.
+// KVService_ServiceDesc is the grpc.ServiceDesc for KVService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var KV_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "kv_pb.KV",
-	HandlerType: (*KVServer)(nil),
+var KVService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "kv_pb.KVService",
+	HandlerType: (*KVServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Get",
-			Handler:    _KV_Get_Handler,
+			Handler:    _KVService_Get_Handler,
 		},
 		{
 			MethodName: "Set",
-			Handler:    _KV_Set_Handler,
+			Handler:    _KVService_Set_Handler,
 		},
 		{
 			MethodName: "Del",
-			Handler:    _KV_Del_Handler,
+			Handler:    _KVService_Del_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

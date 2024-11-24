@@ -6,7 +6,7 @@
   },
   "tags": [
     {
-      "name": "KV"
+      "name": "KVService"
     }
   ],
   "consumes": [
@@ -19,7 +19,7 @@
     "/kv": {
       "post": {
         "description": "Set a value by key",
-        "operationId": "KV_Set",
+        "operationId": "KVService_Set",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -45,14 +45,14 @@
           }
         ],
         "tags": [
-          "KV"
+          "KVService"
         ]
       }
     },
     "/kv/{key}": {
       "get": {
         "description": "Get a value by key",
-        "operationId": "KV_Get",
+        "operationId": "KVService_Get",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -76,12 +76,12 @@
           }
         ],
         "tags": [
-          "KV"
+          "KVService"
         ]
       },
       "delete": {
         "description": "Delete a value by key",
-        "operationId": "KV_Del",
+        "operationId": "KVService_Del",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -105,7 +105,7 @@
           }
         ],
         "tags": [
-          "KV"
+          "KVService"
         ]
       }
     }

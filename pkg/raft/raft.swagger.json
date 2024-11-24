@@ -6,7 +6,7 @@
   },
   "tags": [
     {
-      "name": "Raft"
+      "name": "RaftService"
     }
   ],
   "consumes": [
@@ -19,7 +19,7 @@
     "/raft/append-entry": {
       "post": {
         "description": "Append entries to the log",
-        "operationId": "Raft_AppendEntry",
+        "operationId": "RaftService_AppendEntry",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -45,19 +45,19 @@
           }
         ],
         "tags": [
-          "Raft"
+          "RaftService"
         ]
       }
     },
     "/raft/vote": {
       "post": {
-        "description": "Vote for a candidate",
-        "operationId": "Raft_Vote",
+        "description": "RequestVote for a candidate",
+        "operationId": "RaftService_RequestVote",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/raft_pbVoteResponse"
+              "$ref": "#/definitions/raft_pbRequestVoteResponse"
             }
           },
           "default": {
@@ -73,12 +73,12 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/raft_pbVoteRequest"
+              "$ref": "#/definitions/raft_pbRequestVoteRequest"
             }
           }
         ],
         "tags": [
-          "Raft"
+          "RaftService"
         ]
       }
     }
@@ -112,11 +112,15 @@
           "type": "string",
           "format": "uint64"
         },
+        "leaderCommit": {
+          "type": "string",
+          "format": "uint64"
+        },
         "entries": {
           "type": "array",
           "items": {
-            "type": "string",
-            "format": "byte"
+            "type": "object",
+            "$ref": "#/definitions/raft_pbEntry"
           }
         }
       }
@@ -130,10 +134,31 @@
         },
         "success": {
           "type": "boolean"
+        },
+        "lastLogIndex": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
-    "raft_pbVoteRequest": {
+    "raft_pbEntry": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "index": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "raft_pbRequestVoteRequest": {
       "type": "object",
       "properties": {
         "term": {
@@ -154,7 +179,7 @@
         }
       }
     },
-    "raft_pbVoteResponse": {
+    "raft_pbRequestVoteResponse": {
       "type": "object",
       "properties": {
         "term": {

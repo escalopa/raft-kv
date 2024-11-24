@@ -31,7 +31,7 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_Raft_AppendEntry_0(ctx context.Context, marshaler runtime.Marshaler, client RaftClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_RaftService_AppendEntry_0(ctx context.Context, marshaler runtime.Marshaler, client RaftServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AppendEntryRequest
 	var metadata runtime.ServerMetadata
 
@@ -48,7 +48,7 @@ func request_Raft_AppendEntry_0(ctx context.Context, marshaler runtime.Marshaler
 
 }
 
-func local_request_Raft_AppendEntry_0(ctx context.Context, marshaler runtime.Marshaler, server RaftServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_RaftService_AppendEntry_0(ctx context.Context, marshaler runtime.Marshaler, server RaftServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AppendEntryRequest
 	var metadata runtime.ServerMetadata
 
@@ -65,8 +65,8 @@ func local_request_Raft_AppendEntry_0(ctx context.Context, marshaler runtime.Mar
 
 }
 
-func request_Raft_Vote_0(ctx context.Context, marshaler runtime.Marshaler, client RaftClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq VoteRequest
+func request_RaftService_RequestVote_0(ctx context.Context, marshaler runtime.Marshaler, client RaftServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RequestVoteRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -77,13 +77,13 @@ func request_Raft_Vote_0(ctx context.Context, marshaler runtime.Marshaler, clien
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.Vote(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.RequestVote(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_Raft_Vote_0(ctx context.Context, marshaler runtime.Marshaler, server RaftServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq VoteRequest
+func local_request_RaftService_RequestVote_0(ctx context.Context, marshaler runtime.Marshaler, server RaftServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RequestVoteRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -94,18 +94,18 @@ func local_request_Raft_Vote_0(ctx context.Context, marshaler runtime.Marshaler,
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.Vote(ctx, &protoReq)
+	msg, err := server.RequestVote(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-// RegisterRaftHandlerServer registers the http handlers for service Raft to "mux".
-// UnaryRPC     :call RaftServer directly.
+// RegisterRaftServiceHandlerServer registers the http handlers for service RaftService to "mux".
+// UnaryRPC     :call RaftServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterRaftHandlerFromEndpoint instead.
-func RegisterRaftHandlerServer(ctx context.Context, mux *runtime.ServeMux, server RaftServer) error {
+// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterRaftServiceHandlerFromEndpoint instead.
+func RegisterRaftServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server RaftServiceServer) error {
 
-	mux.Handle("POST", pattern_Raft_AppendEntry_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RaftService_AppendEntry_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -113,12 +113,12 @@ func RegisterRaftHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/raft_pb.Raft/AppendEntry", runtime.WithHTTPPathPattern("/raft/append-entry"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/raft_pb.RaftService/AppendEntry", runtime.WithHTTPPathPattern("/raft/append-entry"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_Raft_AppendEntry_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_RaftService_AppendEntry_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -126,11 +126,11 @@ func RegisterRaftHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 			return
 		}
 
-		forward_Raft_AppendEntry_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RaftService_AppendEntry_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_Raft_Vote_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RaftService_RequestVote_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -138,12 +138,12 @@ func RegisterRaftHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/raft_pb.Raft/Vote", runtime.WithHTTPPathPattern("/raft/vote"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/raft_pb.RaftService/RequestVote", runtime.WithHTTPPathPattern("/raft/vote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_Raft_Vote_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_RaftService_RequestVote_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -151,16 +151,16 @@ func RegisterRaftHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 			return
 		}
 
-		forward_Raft_Vote_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RaftService_RequestVote_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterRaftHandlerFromEndpoint is same as RegisterRaftHandler but
+// RegisterRaftServiceHandlerFromEndpoint is same as RegisterRaftServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterRaftHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterRaftServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
@@ -180,63 +180,63 @@ func RegisterRaftHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux,
 		}()
 	}()
 
-	return RegisterRaftHandler(ctx, mux, conn)
+	return RegisterRaftServiceHandler(ctx, mux, conn)
 }
 
-// RegisterRaftHandler registers the http handlers for service Raft to "mux".
+// RegisterRaftServiceHandler registers the http handlers for service RaftService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterRaftHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterRaftHandlerClient(ctx, mux, NewRaftClient(conn))
+func RegisterRaftServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterRaftServiceHandlerClient(ctx, mux, NewRaftServiceClient(conn))
 }
 
-// RegisterRaftHandlerClient registers the http handlers for service Raft
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "RaftClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RaftClient"
+// RegisterRaftServiceHandlerClient registers the http handlers for service RaftService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "RaftServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RaftServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "RaftClient" to call the correct interceptors.
-func RegisterRaftHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RaftClient) error {
+// "RaftServiceClient" to call the correct interceptors.
+func RegisterRaftServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RaftServiceClient) error {
 
-	mux.Handle("POST", pattern_Raft_AppendEntry_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RaftService_AppendEntry_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/raft_pb.Raft/AppendEntry", runtime.WithHTTPPathPattern("/raft/append-entry"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/raft_pb.RaftService/AppendEntry", runtime.WithHTTPPathPattern("/raft/append-entry"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_Raft_AppendEntry_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RaftService_AppendEntry_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_Raft_AppendEntry_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RaftService_AppendEntry_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_Raft_Vote_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RaftService_RequestVote_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/raft_pb.Raft/Vote", runtime.WithHTTPPathPattern("/raft/vote"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/raft_pb.RaftService/RequestVote", runtime.WithHTTPPathPattern("/raft/vote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_Raft_Vote_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RaftService_RequestVote_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_Raft_Vote_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RaftService_RequestVote_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -244,13 +244,13 @@ func RegisterRaftHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 }
 
 var (
-	pattern_Raft_AppendEntry_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"raft", "append-entry"}, ""))
+	pattern_RaftService_AppendEntry_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"raft", "append-entry"}, ""))
 
-	pattern_Raft_Vote_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"raft", "vote"}, ""))
+	pattern_RaftService_RequestVote_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"raft", "vote"}, ""))
 )
 
 var (
-	forward_Raft_AppendEntry_0 = runtime.ForwardResponseMessage
+	forward_RaftService_AppendEntry_0 = runtime.ForwardResponseMessage
 
-	forward_Raft_Vote_0 = runtime.ForwardResponseMessage
+	forward_RaftService_RequestVote_0 = runtime.ForwardResponseMessage
 )

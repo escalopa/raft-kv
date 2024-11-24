@@ -3,8 +3,8 @@
 package raft
 
 import (
-	_ "embed"
 	context "context"
+	_ "embed"
 
 	go_grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -14,38 +14,38 @@ import (
 //go:embed raft.swagger.json
 var swaggerJSON []byte
 
-type RaftServiceDesc struct {
-	svc RaftServer
+type RaftServiceServiceDesc struct {
+	svc RaftServiceServer
 	i   grpc.UnaryServerInterceptor
 }
 
-func NewRaftServiceDesc(svc RaftServer) *RaftServiceDesc {
-	return &RaftServiceDesc{
+func NewRaftServiceServiceDesc(svc RaftServiceServer) *RaftServiceServiceDesc {
+	return &RaftServiceServiceDesc{
 		svc: svc,
 	}
 }
 
-func (d *RaftServiceDesc) RegisterGRPC(s *grpc.Server) {
-	RegisterRaftServer(s, d.svc)
+func (d *RaftServiceServiceDesc) RegisterGRPC(s *grpc.Server) {
+	RegisterRaftServiceServer(s, d.svc)
 }
 
-func (d *RaftServiceDesc) RegisterHTTP(ctx context.Context, mux *runtime.ServeMux) error {
+func (d *RaftServiceServiceDesc) RegisterHTTP(ctx context.Context, mux *runtime.ServeMux) error {
 	if d.i == nil {
-		return RegisterRaftHandlerServer(ctx, mux, d.svc)
+		return RegisterRaftServiceHandlerServer(ctx, mux, d.svc)
 	}
 
-	return RegisterRaftHandlerServer(ctx, mux, &proxyRaftServer{
-		RaftServer:  d.svc,
-		interceptor: d.i,
+	return RegisterRaftServiceHandlerServer(ctx, mux, &proxyRaftServiceServer{
+		RaftServiceServer: d.svc,
+		interceptor:       d.i,
 	})
 }
 
-func (d *RaftServiceDesc) SwaggerJSON() []byte {
+func (d *RaftServiceServiceDesc) SwaggerJSON() []byte {
 	return swaggerJSON
 }
 
 // WithHTTPUnaryInterceptor adds GRPC Server interceptors for the HTTP unary endpoints. Call again to add more.
-func (d *RaftServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor) {
+func (d *RaftServiceServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor) {
 	if d.i == nil {
 		d.i = i
 	} else {
@@ -53,19 +53,19 @@ func (d *RaftServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor
 	}
 }
 
-type proxyRaftServer struct {
-	RaftServer
+type proxyRaftServiceServer struct {
+	RaftServiceServer
 	interceptor grpc.UnaryServerInterceptor
 }
 
-func (p *proxyRaftServer) AppendEntry(ctx context.Context, req *AppendEntryRequest) (*AppendEntryResponse, error) {
+func (p *proxyRaftServiceServer) AppendEntry(ctx context.Context, req *AppendEntryRequest) (*AppendEntryResponse, error) {
 	info := &grpc.UnaryServerInfo{
-		Server:     p.RaftServer,
-		FullMethod: "/raft.Raft/AppendEntry",
+		Server:     p.RaftServiceServer,
+		FullMethod: "/raft.RaftService/AppendEntry",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.RaftServer.AppendEntry(ctx, req.(*AppendEntryRequest))
+		return p.RaftServiceServer.AppendEntry(ctx, req.(*AppendEntryRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
@@ -76,14 +76,14 @@ func (p *proxyRaftServer) AppendEntry(ctx context.Context, req *AppendEntryReque
 	return resp.(*AppendEntryResponse), nil
 }
 
-func (p *proxyRaftServer) Vote(ctx context.Context, req *VoteRequest) (*VoteResponse, error) {
+func (p *proxyRaftServiceServer) RequestVote(ctx context.Context, req *RequestVoteRequest) (*RequestVoteResponse, error) {
 	info := &grpc.UnaryServerInfo{
-		Server:     p.RaftServer,
-		FullMethod: "/raft.Raft/Vote",
+		Server:     p.RaftServiceServer,
+		FullMethod: "/raft.RaftService/RequestVote",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.RaftServer.Vote(ctx, req.(*VoteRequest))
+		return p.RaftServiceServer.RequestVote(ctx, req.(*RequestVoteRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
@@ -91,5 +91,5 @@ func (p *proxyRaftServer) Vote(ctx context.Context, req *VoteRequest) (*VoteResp
 		return nil, err
 	}
 
-	return resp.(*VoteResponse), nil
+	return resp.(*RequestVoteResponse), nil
 }

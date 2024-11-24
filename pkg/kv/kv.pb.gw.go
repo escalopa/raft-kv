@@ -31,7 +31,7 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_KV_Get_0(ctx context.Context, marshaler runtime.Marshaler, client KVClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_KVService_Get_0(ctx context.Context, marshaler runtime.Marshaler, client KVServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetRequest
 	var metadata runtime.ServerMetadata
 
@@ -57,7 +57,7 @@ func request_KV_Get_0(ctx context.Context, marshaler runtime.Marshaler, client K
 
 }
 
-func local_request_KV_Get_0(ctx context.Context, marshaler runtime.Marshaler, server KVServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_KVService_Get_0(ctx context.Context, marshaler runtime.Marshaler, server KVServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetRequest
 	var metadata runtime.ServerMetadata
 
@@ -83,7 +83,7 @@ func local_request_KV_Get_0(ctx context.Context, marshaler runtime.Marshaler, se
 
 }
 
-func request_KV_Set_0(ctx context.Context, marshaler runtime.Marshaler, client KVClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_KVService_Set_0(ctx context.Context, marshaler runtime.Marshaler, client KVServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SetRequest
 	var metadata runtime.ServerMetadata
 
@@ -100,7 +100,7 @@ func request_KV_Set_0(ctx context.Context, marshaler runtime.Marshaler, client K
 
 }
 
-func local_request_KV_Set_0(ctx context.Context, marshaler runtime.Marshaler, server KVServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_KVService_Set_0(ctx context.Context, marshaler runtime.Marshaler, server KVServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SetRequest
 	var metadata runtime.ServerMetadata
 
@@ -117,7 +117,7 @@ func local_request_KV_Set_0(ctx context.Context, marshaler runtime.Marshaler, se
 
 }
 
-func request_KV_Del_0(ctx context.Context, marshaler runtime.Marshaler, client KVClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_KVService_Del_0(ctx context.Context, marshaler runtime.Marshaler, client KVServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DelRequest
 	var metadata runtime.ServerMetadata
 
@@ -143,7 +143,7 @@ func request_KV_Del_0(ctx context.Context, marshaler runtime.Marshaler, client K
 
 }
 
-func local_request_KV_Del_0(ctx context.Context, marshaler runtime.Marshaler, server KVServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_KVService_Del_0(ctx context.Context, marshaler runtime.Marshaler, server KVServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DelRequest
 	var metadata runtime.ServerMetadata
 
@@ -169,13 +169,13 @@ func local_request_KV_Del_0(ctx context.Context, marshaler runtime.Marshaler, se
 
 }
 
-// RegisterKVHandlerServer registers the http handlers for service KV to "mux".
-// UnaryRPC     :call KVServer directly.
+// RegisterKVServiceHandlerServer registers the http handlers for service KVService to "mux".
+// UnaryRPC     :call KVServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterKVHandlerFromEndpoint instead.
-func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server KVServer) error {
+// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterKVServiceHandlerFromEndpoint instead.
+func RegisterKVServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server KVServiceServer) error {
 
-	mux.Handle("GET", pattern_KV_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_KVService_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -183,12 +183,12 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KV/Get", runtime.WithHTTPPathPattern("/kv/{key}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KVService/Get", runtime.WithHTTPPathPattern("/kv/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_KV_Get_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_KVService_Get_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -196,11 +196,11 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			return
 		}
 
-		forward_KV_Get_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Get_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_KV_Set_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_KVService_Set_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -208,12 +208,12 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KV/Set", runtime.WithHTTPPathPattern("/kv"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KVService/Set", runtime.WithHTTPPathPattern("/kv"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_KV_Set_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_KVService_Set_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -221,11 +221,11 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			return
 		}
 
-		forward_KV_Set_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Set_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_KV_Del_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_KVService_Del_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -233,12 +233,12 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KV/Del", runtime.WithHTTPPathPattern("/kv/{key}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/kv_pb.KVService/Del", runtime.WithHTTPPathPattern("/kv/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_KV_Del_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_KVService_Del_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -246,16 +246,16 @@ func RegisterKVHandlerServer(ctx context.Context, mux *runtime.ServeMux, server 
 			return
 		}
 
-		forward_KV_Del_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Del_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterKVHandlerFromEndpoint is same as RegisterKVHandler but
+// RegisterKVServiceHandlerFromEndpoint is same as RegisterKVServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterKVHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterKVServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
@@ -275,85 +275,85 @@ func RegisterKVHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, e
 		}()
 	}()
 
-	return RegisterKVHandler(ctx, mux, conn)
+	return RegisterKVServiceHandler(ctx, mux, conn)
 }
 
-// RegisterKVHandler registers the http handlers for service KV to "mux".
+// RegisterKVServiceHandler registers the http handlers for service KVService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterKVHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterKVHandlerClient(ctx, mux, NewKVClient(conn))
+func RegisterKVServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterKVServiceHandlerClient(ctx, mux, NewKVServiceClient(conn))
 }
 
-// RegisterKVHandlerClient registers the http handlers for service KV
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "KVClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "KVClient"
+// RegisterKVServiceHandlerClient registers the http handlers for service KVService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "KVServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "KVServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "KVClient" to call the correct interceptors.
-func RegisterKVHandlerClient(ctx context.Context, mux *runtime.ServeMux, client KVClient) error {
+// "KVServiceClient" to call the correct interceptors.
+func RegisterKVServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client KVServiceClient) error {
 
-	mux.Handle("GET", pattern_KV_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_KVService_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KV/Get", runtime.WithHTTPPathPattern("/kv/{key}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KVService/Get", runtime.WithHTTPPathPattern("/kv/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_KV_Get_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_KVService_Get_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_KV_Get_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Get_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_KV_Set_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_KVService_Set_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KV/Set", runtime.WithHTTPPathPattern("/kv"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KVService/Set", runtime.WithHTTPPathPattern("/kv"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_KV_Set_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_KVService_Set_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_KV_Set_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Set_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_KV_Del_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_KVService_Del_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KV/Del", runtime.WithHTTPPathPattern("/kv/{key}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/kv_pb.KVService/Del", runtime.WithHTTPPathPattern("/kv/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_KV_Del_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_KVService_Del_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_KV_Del_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KVService_Del_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -361,17 +361,17 @@ func RegisterKVHandlerClient(ctx context.Context, mux *runtime.ServeMux, client 
 }
 
 var (
-	pattern_KV_Get_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"kv", "key"}, ""))
+	pattern_KVService_Get_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"kv", "key"}, ""))
 
-	pattern_KV_Set_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"kv"}, ""))
+	pattern_KVService_Set_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"kv"}, ""))
 
-	pattern_KV_Del_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"kv", "key"}, ""))
+	pattern_KVService_Del_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"kv", "key"}, ""))
 )
 
 var (
-	forward_KV_Get_0 = runtime.ForwardResponseMessage
+	forward_KVService_Get_0 = runtime.ForwardResponseMessage
 
-	forward_KV_Set_0 = runtime.ForwardResponseMessage
+	forward_KVService_Set_0 = runtime.ForwardResponseMessage
 
-	forward_KV_Del_0 = runtime.ForwardResponseMessage
+	forward_KVService_Del_0 = runtime.ForwardResponseMessage
 )

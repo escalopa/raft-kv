@@ -1,18 +1,28 @@
 package kv
 
 import (
-  "github.com/catalystgo/catalystgo"
-  desc "github.com/escalopa/raft-kv/pkg/kv"
+	"context"
+
+	"github.com/catalystgo/catalystgo"
+	desc "github.com/escalopa/raft-kv/pkg/kv"
 )
 
-type Implementation struct {
-  desc.UnimplementedKVServer
+type Service interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string) error
+	Del(ctx context.Context, key string) error
 }
 
-func NewKV() *Implementation {
-  return &Implementation{}
+type Implementation struct {
+	srv Service
+
+	desc.UnimplementedKVServiceServer
+}
+
+func NewKVService(srv Service) *Implementation {
+	return &Implementation{srv: srv}
 }
 
 func (i *Implementation) GetDescription() catalystgo.ServiceDesc {
-  return desc.NewKVServiceDesc(i)
+	return desc.NewKVServiceServiceDesc(i)
 }

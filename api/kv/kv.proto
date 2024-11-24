@@ -9,7 +9,7 @@ import "protoc-gen-openapiv2/options/openapiv2.proto";
 
 option go_package = "github.com/escalopa/raft-kv/pkg/kv";
 
-service KV {
+service KVService {
   rpc Get(GetRequest) returns (GetResponse){
     option (google.api.http) = {
       get: "/kv/{key}"

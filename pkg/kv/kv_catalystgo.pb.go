@@ -3,8 +3,8 @@
 package kv
 
 import (
-	_ "embed"
 	context "context"
+	_ "embed"
 
 	go_grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -14,38 +14,38 @@ import (
 //go:embed kv.swagger.json
 var swaggerJSON []byte
 
-type KVServiceDesc struct {
-	svc KVServer
+type KVServiceServiceDesc struct {
+	svc KVServiceServer
 	i   grpc.UnaryServerInterceptor
 }
 
-func NewKVServiceDesc(svc KVServer) *KVServiceDesc {
-	return &KVServiceDesc{
+func NewKVServiceServiceDesc(svc KVServiceServer) *KVServiceServiceDesc {
+	return &KVServiceServiceDesc{
 		svc: svc,
 	}
 }
 
-func (d *KVServiceDesc) RegisterGRPC(s *grpc.Server) {
-	RegisterKVServer(s, d.svc)
+func (d *KVServiceServiceDesc) RegisterGRPC(s *grpc.Server) {
+	RegisterKVServiceServer(s, d.svc)
 }
 
-func (d *KVServiceDesc) RegisterHTTP(ctx context.Context, mux *runtime.ServeMux) error {
+func (d *KVServiceServiceDesc) RegisterHTTP(ctx context.Context, mux *runtime.ServeMux) error {
 	if d.i == nil {
-		return RegisterKVHandlerServer(ctx, mux, d.svc)
+		return RegisterKVServiceHandlerServer(ctx, mux, d.svc)
 	}
 
-	return RegisterKVHandlerServer(ctx, mux, &proxyKVServer{
-		KVServer:    d.svc,
-		interceptor: d.i,
+	return RegisterKVServiceHandlerServer(ctx, mux, &proxyKVServiceServer{
+		KVServiceServer: d.svc,
+		interceptor:     d.i,
 	})
 }
 
-func (d *KVServiceDesc) SwaggerJSON() []byte {
+func (d *KVServiceServiceDesc) SwaggerJSON() []byte {
 	return swaggerJSON
 }
 
 // WithHTTPUnaryInterceptor adds GRPC Server interceptors for the HTTP unary endpoints. Call again to add more.
-func (d *KVServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor) {
+func (d *KVServiceServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor) {
 	if d.i == nil {
 		d.i = i
 	} else {
@@ -53,19 +53,19 @@ func (d *KVServiceDesc) WithHTTPUnaryInterceptor(i grpc.UnaryServerInterceptor) 
 	}
 }
 
-type proxyKVServer struct {
-	KVServer
+type proxyKVServiceServer struct {
+	KVServiceServer
 	interceptor grpc.UnaryServerInterceptor
 }
 
-func (p *proxyKVServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+func (p *proxyKVServiceServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
 	info := &grpc.UnaryServerInfo{
-		Server:     p.KVServer,
-		FullMethod: "/kv.KV/Get",
+		Server:     p.KVServiceServer,
+		FullMethod: "/kv.KVService/Get",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.KVServer.Get(ctx, req.(*GetRequest))
+		return p.KVServiceServer.Get(ctx, req.(*GetRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
@@ -76,14 +76,14 @@ func (p *proxyKVServer) Get(ctx context.Context, req *GetRequest) (*GetResponse,
 	return resp.(*GetResponse), nil
 }
 
-func (p *proxyKVServer) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
+func (p *proxyKVServiceServer) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
 	info := &grpc.UnaryServerInfo{
-		Server:     p.KVServer,
-		FullMethod: "/kv.KV/Set",
+		Server:     p.KVServiceServer,
+		FullMethod: "/kv.KVService/Set",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.KVServer.Set(ctx, req.(*SetRequest))
+		return p.KVServiceServer.Set(ctx, req.(*SetRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
@@ -94,14 +94,14 @@ func (p *proxyKVServer) Set(ctx context.Context, req *SetRequest) (*SetResponse,
 	return resp.(*SetResponse), nil
 }
 
-func (p *proxyKVServer) Del(ctx context.Context, req *DelRequest) (*DelResponse, error) {
+func (p *proxyKVServiceServer) Del(ctx context.Context, req *DelRequest) (*DelResponse, error) {
 	info := &grpc.UnaryServerInfo{
-		Server:     p.KVServer,
-		FullMethod: "/kv.KV/Del",
+		Server:     p.KVServiceServer,
+		FullMethod: "/kv.KVService/Del",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.KVServer.Del(ctx, req.(*DelRequest))
+		return p.KVServiceServer.Del(ctx, req.(*DelRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
