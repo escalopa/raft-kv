@@ -44,7 +44,7 @@ func TestNewAppConfig(t *testing.T) {
 				"BADGER_STATE_PATH": "/tmp/badger/state",
 				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -56,7 +56,7 @@ func TestNewAppConfig(t *testing.T) {
 				"BADGER_STATE_PATH": "/tmp/badger/state",
 				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -67,7 +67,7 @@ func TestNewAppConfig(t *testing.T) {
 				"BADGER_STATE_PATH": "/tmp/badger/state",
 				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -78,7 +78,7 @@ func TestNewAppConfig(t *testing.T) {
 				"RAFT_CLUSTER":        "1@127.0.0.1:8080,2@127.0.0.1:8081",
 				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -89,7 +89,7 @@ func TestNewAppConfig(t *testing.T) {
 				"RAFT_CLUSTER":      "1@127.0.0.1:8080,2@127.0.0.1:8081",
 				"BADGER_ENTRY_PATH": "/tmp/badger/entry",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -101,7 +101,7 @@ func TestNewAppConfig(t *testing.T) {
 				"BADGER_STATE_PATH": "/tmp/badger/state",
 				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -113,7 +113,7 @@ func TestNewAppConfig(t *testing.T) {
 				"BADGER_STATE_PATH": "/tmp/badger/state",
 				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
-			check: func(t *testing.T, cfg *AppConfig, err error) {
+			check: func(t *testing.T, _ *AppConfig, err error) {
 				require.Error(t, err)
 			},
 		},

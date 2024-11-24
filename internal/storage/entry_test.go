@@ -97,7 +97,7 @@ func TestStore_Last(t *testing.T) {
 		{
 			name:    "last_entry_not_found",
 			entries: []*core.Entry{},
-			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
+			check: func(t *testing.T, store *EntryStore, _ []*core.Entry) {
 				_, err := store.Last()
 				require.Error(t, err)
 				require.True(t, errors.Is(err, core.ErrNotFound))
@@ -142,7 +142,7 @@ func TestStore_At(t *testing.T) {
 		{
 			name:  "at_entry_not_found",
 			entry: &core.Entry{Term: 1, Index: 1, Cmd: "SET key1 value1"},
-			check: func(t *testing.T, store *EntryStore, entry *core.Entry) {
+			check: func(t *testing.T, store *EntryStore, _ *core.Entry) {
 				_, err := store.At(999)
 				require.Error(t, err)
 				require.True(t, errors.Is(err, core.ErrNotFound))
@@ -218,7 +218,7 @@ func TestStore_Range(t *testing.T) {
 			},
 			start: 999,
 			end:   1000,
-			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
+			check: func(t *testing.T, store *EntryStore, _ []*core.Entry) {
 				_, err := store.Range(999, 1000)
 				require.NoError(t, err)
 			},
