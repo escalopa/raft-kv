@@ -35,7 +35,7 @@ func main() {
 	entryStore := storage.NewEntryStore(entryDB)
 
 	// Init State store
-	stateDB, err := storage.NewDB(appCfg.Badger.EntryPath)
+	stateDB, err := storage.NewDB(appCfg.Badger.StatePath)
 	if err != nil {
 		logger.Fatalf(app.Ctx(), "init state db: %v", err)
 	}

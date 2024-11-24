@@ -1,20 +1,16 @@
 version: '3'
 
 vars:
-  # GENERAL
+  # general
   GOBIN: "$(pwd)/bin"
 
-  # DB
-  DB_DSN: "user=postgres dbname=raft-kv password=postgres sslmode=disable"
-  MIGRATION_DIR: "./migrations"
-
-  # DOCKER
+  # docker
   DOCKER_IMAGE: "escalopa/raft-kv"
 
 tasks:
   run:
     cmds:
-      - go run ./cmd/raft-kv/. --config .catalystgo/config-development.yml
+      - go run ./cmd/raft-kv/. --config .catalystgo/config-local.yml
 
   mock:
     cmds:
@@ -49,12 +45,12 @@ tasks:
       - task: lint
       - task: test
 
-# PROTO & DEPS
+# proto & deps
 
   generate:
     cmds:
-      # Generate
-      - "{{.GOBIN}}/buf generate --template buf.gen.vendor.yaml"
+      # generate
+      - "{{.GOBIN}}/buf generate --template buf.gen.vendor.yaml || true" # ignore error on vendor generation (because it might be empty)
       - "{{.GOBIN}}/buf generate --template buf.gen.yaml"
       - "{{.GOBIN}}/catalystgo implement --input pkg --output internal/api"
       - go mod tidy
@@ -63,15 +59,14 @@ tasks:
 
   vendor:
     cmds:
-      # Check if protosync.yml exists if not call protosync init
-      - if [ ! -f protosync.yml ]; then {{.GOBIN}}/protosync init; fi
+      - "{{.GOBIN}}/protosync init"
       - "{{.GOBIN}}/protosync vendor --file protosync.yml"
     deps:
       - deps
 
   deps:
     cmds:
-      # GRPC
+      # grpc
       - GOBIN={{.GOBIN}} go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.16.0
       - GOBIN={{.GOBIN}} go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.16.0
       - GOBIN={{.GOBIN}} go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto@v0.6.0
@@ -79,12 +74,12 @@ tasks:
       - GOBIN={{.GOBIN}} go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
       - GOBIN={{.GOBIN}} go install github.com/bufbuild/buf/cmd/buf@v1.33.0
 
-      # CATALYSTGO
-      - GOBIN={{.GOBIN}} go install github.com/catalystgo/cli/cmd/catalystgo@v1.0.1
+      # catalystgo
+      - GOBIN={{.GOBIN}} go install github.com/catalystgo/cli/cmd/catalystgo@v1.0.4
       - GOBIN={{.GOBIN}} go install github.com/catalystgo/cli/cmd/protoc-gen-catalystgo@v1.0.1
-      - GOBIN={{.GOBIN}} go install github.com/catalystgo/protosync@v0.0.2
+      - GOBIN={{.GOBIN}} go install github.com/catalystgo/protosync@v0.0.3
 
-      # TOOLS
+      # tools
       - GOBIN={{.GOBIN}} go install github.com/pressly/goose/v3/cmd/goose@v3.20.0
       - GOBIN={{.GOBIN}} go install golang.org/x/tools/cmd/goimports@v0.19.0
       - GOBIN={{.GOBIN}} go install github.com/mgechev/revive@v1.3.7
@@ -92,17 +87,7 @@ tasks:
       - GOBIN={{.GOBIN}} go install github.com/golang/mock/mockgen@v1.6.0
       - GOBIN={{.GOBIN}} go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
 
-# DOCKER COMPOSE
-
-  docker-up:
-    cmds:
-      - docker compose -f .deployment/docker-compose.yml up -d
-
-  docker-down:
-    cmds:
-      - docker compose -f .deployment/docker-compose.yml down
-
-# DOCKER
+# docker
 
   docker-build:
     cmds:
@@ -118,25 +103,7 @@ tasks:
       - task: docker-build
       - task: docker-push
 
-# MIGRATIONS
-
-  goose-add:
-    cmds:
-    - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} create fix_me sql"
-
-  goose-status:
-    cmds:
-      - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" status"
-
-  goose-up:
-    cmds:
-    - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" up"
-
-  goose-down:
-    cmds:
-      - "{{.GOBIN}}/goose -dir {{.MIGRATION_DIR}} postgres \"{{.DB_DSN}}\" down"
-
-# INTERNAL COMMANDS
+# internal
 
   go_files:
     desc: "Return all .go files and run .COMMAND on them"

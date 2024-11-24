@@ -4,11 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
 	"github.com/escalopa/raft-kv/internal/core"
 	desc "github.com/escalopa/raft-kv/pkg/raft"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (

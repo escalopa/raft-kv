@@ -1,0 +1,13 @@
+app:
+  name: "raft-kv"
+
+server:
+  admin:
+    port: 6000
+  http:
+    port: 7000
+  grpc:
+    port: 8000
+  shutdown:
+    timeout: 10s
+    delay: 1s
