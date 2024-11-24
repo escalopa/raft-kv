@@ -1,3 +1,3 @@
 # raft-kv 🗃️
 
-A raft-based key-value store.
+A **raft** based **key-value** store.
