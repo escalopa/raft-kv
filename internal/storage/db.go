@@ -5,6 +5,9 @@ import (
 )
 
 func NewDB(path string) (*badger.DB, error) {
-	opts := badger.DefaultOptions(path)
+	opts := badger.
+		DefaultOptions(path).
+		WithLoggingLevel(badger.WARNING) // TODO: set from app config
+
 	return badger.Open(opts)
 }

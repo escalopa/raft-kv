@@ -10,7 +10,7 @@ import (
 func NewDB(t *testing.T) (*badger.DB, func(t *testing.T)) {
 	opts := badger.DefaultOptions("").
 		WithInMemory(true).
-		WithLoggingLevel(badger.INFO)
+		WithLoggingLevel(badger.ERROR)
 
 	db, err := badger.Open(opts)
 	require.NoError(t, err)
