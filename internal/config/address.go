@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/catalystgo/logger/logger"
-
+	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
 )
 
-func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([]Node, error) {
+func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([]core.Node, error) {
 	var (
-		nodes     = make([]Node, 0, len(cluster))
+		nodes     = make([]core.Node, 0, len(cluster))
 		uniqueIDs = make(map[uint64]struct{})
 
 		id      uint64
@@ -26,23 +26,23 @@ func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([
 			return nil, errors.Errorf("empty node at RAFT_CLUSTER[%d]", i)
 		}
 
-		// Parse node ID and address
+		// Parse node ServerID and address
 		_, err = fmt.Fscanf(strings.NewReader(node), "%d@%s", &id, &address)
 		if err != nil {
 			return nil, errors.Errorf("parse node address at RAFT_CLUSTER[%d](%s): %v", i, node, err)
 		}
 
-		// Validate ID
+		// Validate ServerID
 		if id == raftID {
 			logger.Warnf(ctx, "skip self node at RAFT_CLUSTER[%d](%s)", i, node)
 			continue
 		}
 		if id == 0 {
-			return nil, errors.Errorf("node ID must be greater than 0 at RAFT_CLUSTER[%d](%s)", i, node)
+			return nil, errors.Errorf("node ServerID must be greater than 0 at RAFT_CLUSTER[%d](%s)", i, node)
 		}
-		// Check for duplicate node ID
+		// Check for duplicate node ServerID
 		if _, ok := uniqueIDs[id]; ok {
-			return nil, errors.Errorf("duplicate node ID at RAFT_CLUSTER[%d](%s)", i, node)
+			return nil, errors.Errorf("duplicate node ServerID at RAFT_CLUSTER[%d](%s)", i, node)
 		}
 		uniqueIDs[id] = struct{}{}
 
@@ -51,11 +51,11 @@ func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([
 			return nil, errors.Errorf("empty node address at RAFT_CLUSTER[%d](%s)", i, node)
 		}
 
-		// Append node
-		nodes[i] = Node{
-			ID:      id,
+		// AppendEntry node
+		nodes = append(nodes, core.Node{
+			ID:      core.ServerID(id),
 			Address: address,
-		}
+		})
 	}
 
 	return nodes, nil

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
 )
 
@@ -19,17 +20,9 @@ const (
 )
 
 type (
-	// Node represents a single node in the Raft cluster
-	// Passed as `ID@Address` in the RAFT_CLUSTER environment variable
-	// where RAFT_CLUSTER is a comma-separated list of nodes
-	Node struct {
-		ID      uint64
-		Address string // IP:Port
-	}
-
 	RaftConfig struct {
-		ID      uint64
-		Cluster []Node
+		ID      core.ServerID
+		Cluster []core.Node
 	}
 
 	BadgerConfig struct {
@@ -39,9 +32,7 @@ type (
 	}
 
 	AppConfig struct {
-		// Raft configuration
-		Raft RaftConfig
-		// Badger configuration
+		Raft   RaftConfig
 		Badger BadgerConfig
 	}
 )
@@ -89,7 +80,7 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 
 	appCfg := &AppConfig{
 		Raft: RaftConfig{
-			ID:      raftID,
+			ID:      core.ServerID(raftID),
 			Cluster: nodes,
 		},
 		Badger: BadgerConfig{

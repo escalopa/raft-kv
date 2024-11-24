@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/escalopa/raft-kv/internal/core"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,25 +21,28 @@ func TestNewAppConfig(t *testing.T) {
 		{
 			name: "valid_config",
 			envVars: map[string]string{
-				"RAFT_ID":             "1",
-				"RAFT_CLUSTER":        "1@127.0.0.1:8080,2@127.0.0.1:8081",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_ID":           "1",
+				"RAFT_CLUSTER":      "2@127.0.0.1:8080,3@127.0.0.1:8081",
+				"BADGER_ENTRY_PATH": "/tmp/badger/entry",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.NoError(t, err)
-				require.Equal(t, uint64(1), cfg.Raft.ID)
+				require.Equal(t, core.ServerID(1), cfg.Raft.ID)
 				require.Equal(t, 2, len(cfg.Raft.Cluster))
 				require.Equal(t, "/tmp/badger/entry", cfg.Badger.EntryPath)
-				require.Equal(t, "/tmp/badger/storage", cfg.Badger.KVPath)
+				require.Equal(t, "/tmp/badger/state", cfg.Badger.StatePath)
+				require.Equal(t, "/tmp/badger/kv", cfg.Badger.KVPath)
 			},
 		},
 		{
 			name: "missing_raft_id",
 			envVars: map[string]string{
-				"RAFT_CLUSTER":        "1@127.0.0.1:8080,2@127.0.0.1:8081",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_CLUSTER":      "1@127.0.0.1:8080,2@127.0.0.1:8081",
+				"BADGER_ENTRY_PATH": "/tmp/badger/entry",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.Error(t, err)
@@ -46,10 +51,10 @@ func TestNewAppConfig(t *testing.T) {
 		{
 			name: "invalid_raft_id",
 			envVars: map[string]string{
-				"RAFT_ID":             "invalid",
-				"RAFT_CLUSTER":        "1@127.0.0.1:8080,2@127.0.0.1:8081",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_ID":           "invalid",
+				"RAFT_CLUSTER":      "1@127.0.0.1:8080,2@127.0.0.1:8081",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.Error(t, err)
@@ -58,9 +63,9 @@ func TestNewAppConfig(t *testing.T) {
 		{
 			name: "missing_raft_cluster",
 			envVars: map[string]string{
-				"RAFT_ID":             "1",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_ID":           "1",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.Error(t, err)
@@ -91,10 +96,10 @@ func TestNewAppConfig(t *testing.T) {
 		{
 			name: "invalid_node_address",
 			envVars: map[string]string{
-				"RAFT_ID":             "1",
-				"RAFT_CLUSTER":        "1127.0.0.1,2@127.0.0.1:8081",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_ID":           "1",
+				"RAFT_CLUSTER":      "1127.0.0.1,2@127.0.0.1:8081",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.Error(t, err)
@@ -103,10 +108,10 @@ func TestNewAppConfig(t *testing.T) {
 		{
 			name: "duplicate_node_id",
 			envVars: map[string]string{
-				"RAFT_ID":             "1",
-				"RAFT_CLUSTER":        "1@127.0.0.1:8080,1@127.0.0.1:8081",
-				"BADGER_ENTRY_PATH":   "/tmp/badger/entry",
-				"BADGER_STORAGE_PATH": "/tmp/badger/storage",
+				"RAFT_ID":           "1",
+				"RAFT_CLUSTER":      "1@127.0.0.1:8080,1@127.0.0.1:8081",
+				"BADGER_STATE_PATH": "/tmp/badger/state",
+				"BADGER_KV_PATH":    "/tmp/badger/kv",
 			},
 			check: func(t *testing.T, cfg *AppConfig, err error) {
 				require.Error(t, err)
