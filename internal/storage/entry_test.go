@@ -20,7 +20,7 @@ func TestStore_Append(t *testing.T) {
 		{
 			name: "append_single_entry",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			},
 			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
 				for _, entry := range entries {
@@ -33,8 +33,8 @@ func TestStore_Append(t *testing.T) {
 		{
 			name: "append_multiple_entries",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
-				{Term: 1, Index: 2, Cmd: "SET key2 value2"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
+				{Term: 1, Index: 2, Cmd: []string{"SET", "key2", "value2"}},
 			},
 			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
 				for _, entry := range entries {
@@ -74,7 +74,7 @@ func TestStore_Last(t *testing.T) {
 		{
 			name: "last_entry_single",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			},
 			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
 				last, err := store.Last()
@@ -85,8 +85,8 @@ func TestStore_Last(t *testing.T) {
 		{
 			name: "last_entry_multiple",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
-				{Term: 1, Index: 2, Cmd: "SET key2 value2"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
+				{Term: 1, Index: 2, Cmd: []string{"SET", "key2", "value2"}},
 			},
 			check: func(t *testing.T, store *EntryStore, entries []*core.Entry) {
 				last, err := store.Last()
@@ -132,7 +132,7 @@ func TestStore_At(t *testing.T) {
 	}{
 		{
 			name:  "at_single_entry",
-			entry: &core.Entry{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+			entry: &core.Entry{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			check: func(t *testing.T, store *EntryStore, entry *core.Entry) {
 				e, err := store.At(entry.Index)
 				require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestStore_At(t *testing.T) {
 		},
 		{
 			name:  "at_entry_not_found",
-			entry: &core.Entry{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+			entry: &core.Entry{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			check: func(t *testing.T, store *EntryStore, _ *core.Entry) {
 				_, err := store.At(999)
 				require.Error(t, err)
@@ -180,7 +180,7 @@ func TestStore_Range(t *testing.T) {
 		{
 			name: "range_single_entry",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			},
 			start: 1,
 			end:   1,
@@ -196,9 +196,9 @@ func TestStore_Range(t *testing.T) {
 		{
 			name: "range_multiple_entries",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
-				{Term: 1, Index: 2, Cmd: "DEL key2 value2"},
-				{Term: 1, Index: 3, Cmd: "SET key3 value3"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
+				{Term: 1, Index: 2, Cmd: []string{"DEL", "key2", " value2"}},
+				{Term: 1, Index: 3, Cmd: []string{"SET", "key3", "value3"}},
 			},
 			start: 1,
 			end:   3,
@@ -214,7 +214,7 @@ func TestStore_Range(t *testing.T) {
 		{
 			name: "range_entries_not_found",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			},
 			start: 999,
 			end:   1000,
@@ -226,7 +226,7 @@ func TestStore_Range(t *testing.T) {
 		{
 			name: "range_entries_partial_not_found",
 			entries: []*core.Entry{
-				{Term: 1, Index: 1, Cmd: "SET key1 value1"},
+				{Term: 1, Index: 1, Cmd: []string{"SET", "key1", "value1"}},
 			},
 			start: 1,
 			end:   1000,
