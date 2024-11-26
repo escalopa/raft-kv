@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/dgraph-io/badger/v4"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
@@ -14,7 +16,11 @@ func NewKVStore(db *badger.DB) *KVStore {
 	return &KVStore{db: db}
 }
 
-func (kvs *KVStore) Get(key string) (string, error) {
+func (kvs *KVStore) Get(ctx context.Context, key string) (string, error) {
+	if isClosedCtx(ctx) {
+		return "", ctx.Err()
+	}
+
 	var value []byte
 
 	err := kvs.db.View(func(txn *badger.Txn) error {
@@ -38,13 +44,21 @@ func (kvs *KVStore) Get(key string) (string, error) {
 	return string(value), err
 }
 
-func (kvs *KVStore) Set(key, value string) error {
+func (kvs *KVStore) Set(ctx context.Context, key, value string) error {
+	if isClosedCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return kvs.db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), []byte(value))
 	})
 }
 
-func (kvs *KVStore) Del(key string) error {
+func (kvs *KVStore) Del(ctx context.Context, key string) error {
+	if isClosedCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return kvs.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(key))
 	})
