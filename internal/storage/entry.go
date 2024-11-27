@@ -21,7 +21,7 @@ func NewEntryStore(db *badger.DB) *EntryStore {
 }
 
 func (es *EntryStore) AppendEntries(ctx context.Context, entries ...*core.Entry) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -61,7 +61,7 @@ func (es *EntryStore) AppendEntries(ctx context.Context, entries ...*core.Entry)
 }
 
 func (es *EntryStore) Last(ctx context.Context) (entry *core.Entry, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return nil, ctx.Err()
 	}
 
@@ -82,7 +82,7 @@ func (es *EntryStore) Last(ctx context.Context) (entry *core.Entry, err error) {
 }
 
 func (es *EntryStore) At(ctx context.Context, index uint64) (entry *core.Entry, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return nil, ctx.Err()
 	}
 
@@ -94,16 +94,15 @@ func (es *EntryStore) At(ctx context.Context, index uint64) (entry *core.Entry, 
 }
 
 func (es *EntryStore) Range(ctx context.Context, start, end uint64) (entries []*core.Entry, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return nil, ctx.Err()
 	}
 
 	err = es.db.View(func(txn *badger.Txn) error {
 		size := end - start + 1
 
-		// TODO: move check to business layer
 		if size <= 0 {
-			return nil
+			return nil // TODO: return an error
 		}
 
 		entries = make([]*core.Entry, 0, size)

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/escalopa/raft-kv/internal/core"
@@ -27,7 +28,7 @@ func TestStore_Append(t *testing.T) {
 				for _, entry := range entries {
 					e, err := store.At(ctx, entry.Index)
 					require.NoError(t, err)
-					require.True(t, entry.IsEqual(e))
+					require.True(t, reflect.DeepEqual(entry, e))
 				}
 			},
 		},
@@ -41,7 +42,7 @@ func TestStore_Append(t *testing.T) {
 				for _, entry := range entries {
 					e, err := store.At(ctx, entry.Index)
 					require.NoError(t, err)
-					require.True(t, entry.IsEqual(e))
+					require.True(t, reflect.DeepEqual(entry, e))
 				}
 			},
 		},
@@ -81,7 +82,7 @@ func TestStore_Last(t *testing.T) {
 			check: func(t *testing.T, ctx context.Context, store *EntryStore, entries []*core.Entry) {
 				last, err := store.Last(ctx)
 				require.NoError(t, err)
-				require.True(t, entries[len(entries)-1].IsEqual(last))
+				require.True(t, reflect.DeepEqual(entries[len(entries)-1], last))
 			},
 		},
 		{
@@ -93,7 +94,7 @@ func TestStore_Last(t *testing.T) {
 			check: func(t *testing.T, ctx context.Context, store *EntryStore, entries []*core.Entry) {
 				last, err := store.Last(ctx)
 				require.NoError(t, err)
-				require.True(t, entries[len(entries)-1].IsEqual(last))
+				require.True(t, reflect.DeepEqual(entries[len(entries)-1], last))
 			},
 		},
 		{
@@ -139,7 +140,7 @@ func TestStore_At(t *testing.T) {
 			check: func(t *testing.T, ctx context.Context, store *EntryStore, entry *core.Entry) {
 				e, err := store.At(ctx, entry.Index)
 				require.NoError(t, err)
-				require.True(t, entry.IsEqual(e))
+				require.True(t, reflect.DeepEqual(entry, e))
 			},
 		},
 		{
@@ -193,7 +194,7 @@ func TestStore_Range(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, len(entries), len(rangedEntries))
 				for i, entry := range entries {
-					require.True(t, entry.IsEqual(rangedEntries[i]))
+					require.True(t, reflect.DeepEqual(entry, rangedEntries[i]))
 				}
 			},
 		},
@@ -211,7 +212,7 @@ func TestStore_Range(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, len(entries), len(rangedEntries))
 				for i, entry := range entries {
-					require.True(t, entry.IsEqual(rangedEntries[i]))
+					require.True(t, reflect.DeepEqual(entry, rangedEntries[i]))
 				}
 			},
 		},
@@ -239,7 +240,7 @@ func TestStore_Range(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, len(entries), len(rangedEntries))
 				for i, entry := range entries {
-					require.True(t, entry.IsEqual(rangedEntries[i]))
+					require.True(t, reflect.DeepEqual(entry, rangedEntries[i]))
 				}
 			},
 		},
