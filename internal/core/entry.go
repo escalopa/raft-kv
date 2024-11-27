@@ -3,10 +3,13 @@ package core
 import (
 	"encoding/binary"
 	"encoding/json"
-	"slices"
 )
 
 type Command string
+
+func (c Command) String() string {
+	return string(c)
+}
 
 const (
 	Set Command = "SET"
@@ -20,20 +23,13 @@ type Entry struct {
 	// Index is the index of the log entry
 	Index uint64 `json:"index"`
 
-	// Cmd is the command of the log entry as an array of strings
+	// Data is the command of the log entry as an array of strings
 	// Example: ["SET", "key", "value"], ["DEL", "key"]
-	Cmd []string `json:"cmd"`
+	Data []string `json:"data"`
 }
 
 func (e *Entry) ToBytes() ([]byte, error) {
 	return json.Marshal(e)
-}
-
-func (e *Entry) IsEqual(other *Entry) bool {
-	if other == nil {
-		return false
-	}
-	return e.Term == other.Term && e.Index == other.Index && slices.Equal(e.Cmd, other.Cmd)
 }
 
 func EntryFromBytes(bytes []byte) (*Entry, error) {

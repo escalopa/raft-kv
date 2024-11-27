@@ -14,6 +14,7 @@ func NewDB(path string) (*badger.DB, error) {
 	return badger.Open(opts)
 }
 
-func isClosedCtx(ctx context.Context) bool {
+// isDeadCtx checks if the context is dead (dead == has an error)
+func isDeadCtx(ctx context.Context) bool {
 	return ctx.Err() != nil
 }

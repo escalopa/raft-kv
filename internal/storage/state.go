@@ -23,7 +23,7 @@ func NewStateStore(db *badger.DB) *StateStore {
 }
 
 func (ss *StateStore) SetTerm(ctx context.Context, term uint64) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -33,7 +33,7 @@ func (ss *StateStore) SetTerm(ctx context.Context, term uint64) error {
 }
 
 func (ss *StateStore) GetTerm(ctx context.Context) (term uint64, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return 0, ctx.Err()
 	}
 
@@ -45,7 +45,7 @@ func (ss *StateStore) GetTerm(ctx context.Context) (term uint64, err error) {
 }
 
 func (ss *StateStore) SetCommit(ctx context.Context, index uint64) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -55,7 +55,7 @@ func (ss *StateStore) SetCommit(ctx context.Context, index uint64) error {
 }
 
 func (ss *StateStore) GetCommit(ctx context.Context) (index uint64, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return 0, ctx.Err()
 	}
 
@@ -67,7 +67,7 @@ func (ss *StateStore) GetCommit(ctx context.Context) (index uint64, err error) {
 }
 
 func (ss *StateStore) SetVoted(ctx context.Context, index uint64) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -77,7 +77,7 @@ func (ss *StateStore) SetVoted(ctx context.Context, index uint64) error {
 }
 
 func (ss *StateStore) GetVoted(ctx context.Context) (index uint64, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return 0, ctx.Err()
 	}
 
@@ -89,7 +89,7 @@ func (ss *StateStore) GetVoted(ctx context.Context) (index uint64, err error) {
 }
 
 func (ss *StateStore) SetLastApplied(ctx context.Context, index uint64) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -99,7 +99,7 @@ func (ss *StateStore) SetLastApplied(ctx context.Context, index uint64) error {
 }
 
 func (ss *StateStore) GetLastApplied(ctx context.Context) (index uint64, err error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return 0, ctx.Err()
 	}
 

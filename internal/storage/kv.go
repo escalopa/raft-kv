@@ -17,7 +17,7 @@ func NewKVStore(db *badger.DB) *KVStore {
 }
 
 func (kvs *KVStore) Get(ctx context.Context, key string) (string, error) {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return "", ctx.Err()
 	}
 
@@ -45,7 +45,7 @@ func (kvs *KVStore) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (kvs *KVStore) Set(ctx context.Context, key, value string) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 
@@ -55,7 +55,7 @@ func (kvs *KVStore) Set(ctx context.Context, key, value string) error {
 }
 
 func (kvs *KVStore) Del(ctx context.Context, key string) error {
-	if isClosedCtx(ctx) {
+	if isDeadCtx(ctx) {
 		return ctx.Err()
 	}
 

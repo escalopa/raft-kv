@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	ErrNotFound = fmt.Errorf("not found")
+	ErrNotFound  = fmt.Errorf("not found")
+	ErrNotLeader = fmt.Errorf("not leader")
 )
 
 func ToGrpcError(err error) error {
@@ -23,6 +24,8 @@ func ToGrpcError(err error) error {
 		return status.Error(codes.Canceled, err.Error())
 	case errors.Is(err, context.DeadlineExceeded):
 		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, ErrNotLeader):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
