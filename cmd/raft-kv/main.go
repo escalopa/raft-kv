@@ -69,7 +69,12 @@ func main() {
 	kvService := kv.NewKVService(raftState)
 	raftService := raft.NewRaftService(raftState)
 
-	if err := app.Run(kvService, raftService); err != nil {
+	services := []catalystgo.Service{
+		kvService,
+		raftService,
+	}
+
+	if err := app.Run(services...); err != nil {
 		logger.Fatalf(app.Ctx(), "app run: %v", err)
 	}
 }

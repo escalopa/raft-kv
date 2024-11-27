@@ -19,7 +19,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-func (m *AppendEntryRequest) MarshalVT() (dAtA []byte, err error) {
+func (m *AppendEntriesRequest) MarshalVT() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -32,12 +32,12 @@ func (m *AppendEntryRequest) MarshalVT() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *AppendEntryRequest) MarshalToVT(dAtA []byte) (int, error) {
+func (m *AppendEntriesRequest) MarshalToVT(dAtA []byte) (int, error) {
 	size := m.SizeVT()
 	return m.MarshalToSizedBufferVT(dAtA[:size])
 }
 
-func (m *AppendEntryRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+func (m *AppendEntriesRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m == nil {
 		return 0, nil
 	}
@@ -89,7 +89,7 @@ func (m *AppendEntryRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *AppendEntryResponse) MarshalVT() (dAtA []byte, err error) {
+func (m *AppendEntriesResponse) MarshalVT() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -102,12 +102,12 @@ func (m *AppendEntryResponse) MarshalVT() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *AppendEntryResponse) MarshalToVT(dAtA []byte) (int, error) {
+func (m *AppendEntriesResponse) MarshalToVT(dAtA []byte) (int, error) {
 	size := m.SizeVT()
 	return m.MarshalToSizedBufferVT(dAtA[:size])
 }
 
-func (m *AppendEntryResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+func (m *AppendEntriesResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m == nil {
 		return 0, nil
 	}
@@ -172,13 +172,13 @@ func (m *RequestVoteRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.LogIndex != 0 {
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.LogIndex))
+	if m.LastLogIndex != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.LastLogIndex))
 		i--
 		dAtA[i] = 0x20
 	}
-	if m.LogTerm != 0 {
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.LogTerm))
+	if m.LastLogTerm != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.LastLogTerm))
 		i--
 		dAtA[i] = 0x18
 	}
@@ -274,11 +274,13 @@ func (m *Entry) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.unknownFields)
 	}
 	if len(m.Data) > 0 {
-		i -= len(m.Data)
-		copy(dAtA[i:], m.Data)
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Data)))
-		i--
-		dAtA[i] = 0x1a
+		for iNdEx := len(m.Data) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Data[iNdEx])
+			copy(dAtA[i:], m.Data[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Data[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
 	if m.Index != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Index))
@@ -293,7 +295,7 @@ func (m *Entry) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *AppendEntryRequest) SizeVT() (n int) {
+func (m *AppendEntriesRequest) SizeVT() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -324,7 +326,7 @@ func (m *AppendEntryRequest) SizeVT() (n int) {
 	return n
 }
 
-func (m *AppendEntryResponse) SizeVT() (n int) {
+func (m *AppendEntriesResponse) SizeVT() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -355,11 +357,11 @@ func (m *RequestVoteRequest) SizeVT() (n int) {
 	if m.CandidateId != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.CandidateId))
 	}
-	if m.LogTerm != 0 {
-		n += 1 + protohelpers.SizeOfVarint(uint64(m.LogTerm))
+	if m.LastLogTerm != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.LastLogTerm))
 	}
-	if m.LogIndex != 0 {
-		n += 1 + protohelpers.SizeOfVarint(uint64(m.LogIndex))
+	if m.LastLogIndex != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.LastLogIndex))
 	}
 	n += len(m.unknownFields)
 	return n
@@ -393,15 +395,17 @@ func (m *Entry) SizeVT() (n int) {
 	if m.Index != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.Index))
 	}
-	l = len(m.Data)
-	if l > 0 {
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	if len(m.Data) > 0 {
+		for _, s := range m.Data {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
 	}
 	n += len(m.unknownFields)
 	return n
 }
 
-func (m *AppendEntryRequest) UnmarshalVT(dAtA []byte) error {
+func (m *AppendEntriesRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -424,10 +428,10 @@ func (m *AppendEntryRequest) UnmarshalVT(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: AppendEntryRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: AppendEntriesRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AppendEntryRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AppendEntriesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -463,7 +467,7 @@ func (m *AppendEntryRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.LeaderId |= uint32(b&0x7F) << shift
+				m.LeaderId |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -581,7 +585,7 @@ func (m *AppendEntryRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *AppendEntryResponse) UnmarshalVT(dAtA []byte) error {
+func (m *AppendEntriesResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -604,10 +608,10 @@ func (m *AppendEntryResponse) UnmarshalVT(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: AppendEntryResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: AppendEntriesResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AppendEntryResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AppendEntriesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -752,16 +756,16 @@ func (m *RequestVoteRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.CandidateId |= uint32(b&0x7F) << shift
+				m.CandidateId |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
 		case 3:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LogTerm", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field LastLogTerm", wireType)
 			}
-			m.LogTerm = 0
+			m.LastLogTerm = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return protohelpers.ErrIntOverflow
@@ -771,16 +775,16 @@ func (m *RequestVoteRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.LogTerm |= uint64(b&0x7F) << shift
+				m.LastLogTerm |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
 		case 4:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LogIndex", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field LastLogIndex", wireType)
 			}
-			m.LogIndex = 0
+			m.LastLogIndex = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return protohelpers.ErrIntOverflow
@@ -790,7 +794,7 @@ func (m *RequestVoteRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.LogIndex |= uint64(b&0x7F) << shift
+				m.LastLogIndex |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -978,7 +982,7 @@ func (m *Entry) UnmarshalVT(dAtA []byte) error {
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
 			}
-			var byteLen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return protohelpers.ErrIntOverflow
@@ -988,25 +992,23 @@ func (m *Entry) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if byteLen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return protohelpers.ErrInvalidLength
 			}
-			postIndex := iNdEx + byteLen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return protohelpers.ErrInvalidLength
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
-			}
+			m.Data = append(m.Data, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

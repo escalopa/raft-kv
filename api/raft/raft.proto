@@ -10,7 +10,7 @@ import "protoc-gen-openapiv2/options/openapiv2.proto";
 option go_package = "github.com/escalopa/raft-kv/pkg/raft";
 
 service RaftService {
-  rpc AppendEntry(AppendEntryRequest) returns (AppendEntryResponse){
+  rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse){
     option (google.api.http) = {
       post: "/raft/append-entry"
       body: "*"
@@ -31,16 +31,16 @@ service RaftService {
   }
 }
 
-message AppendEntryRequest{
+message AppendEntriesRequest{
   uint64 term = 1;
-  uint32 leader_id = 2;
+  uint64 leader_id = 2;
   uint64 prev_log_term = 3;
   uint64 prev_log_index = 4;
   uint64 leader_commit = 5;
   repeated Entry entries = 6;
 }
 
-message AppendEntryResponse{
+message AppendEntriesResponse{
   uint64 term = 1;
   bool success = 2;
   uint64 last_log_index = 3;
@@ -48,9 +48,9 @@ message AppendEntryResponse{
 
 message RequestVoteRequest {
   uint64 term = 1;
-  uint32 candidate_id = 2;
-  uint64 log_term = 3;
-  uint64 log_index = 4;
+  uint64 candidate_id = 2;
+  uint64 last_log_term = 3;
+  uint64 last_log_index = 4;
 }
 
 message RequestVoteResponse {
@@ -61,5 +61,5 @@ message RequestVoteResponse {
 message Entry {
   uint64 term = 1;
   uint64 index = 2;
-  bytes data = 3;
+  repeated string data = 3;
 }

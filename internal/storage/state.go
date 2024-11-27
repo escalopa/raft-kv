@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/dgraph-io/badger/v4"
 	"github.com/escalopa/raft-kv/internal/core"
 )
@@ -8,7 +10,7 @@ import (
 var (
 	termKey    = []byte("term_key")
 	commitKey  = []byte("commit_key")
-	appliedKey = []byte("applied_key")
+	appliedKey = []byte("last_applied_key")
 	votedKey   = []byte("voted_key")
 )
 
@@ -20,13 +22,21 @@ func NewStateStore(db *badger.DB) *StateStore {
 	return &StateStore{db: db}
 }
 
-func (ss *StateStore) SetTerm(term uint64) error {
+func (ss *StateStore) SetTerm(ctx context.Context, term uint64) error {
+	if isDeadCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return ss.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(termKey, core.UintToKey(term))
 	})
 }
 
-func (ss *StateStore) GetTerm() (term uint64, err error) {
+func (ss *StateStore) GetTerm(ctx context.Context) (term uint64, err error) {
+	if isDeadCtx(ctx) {
+		return 0, ctx.Err()
+	}
+
 	err = ss.db.View(func(txn *badger.Txn) error {
 		term, err = getUint64(txn, termKey)
 		return err
@@ -34,13 +44,21 @@ func (ss *StateStore) GetTerm() (term uint64, err error) {
 	return
 }
 
-func (ss *StateStore) SetCommit(index uint64) error {
+func (ss *StateStore) SetCommit(ctx context.Context, index uint64) error {
+	if isDeadCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return ss.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(commitKey, core.UintToKey(index))
 	})
 }
 
-func (ss *StateStore) GetCommit() (index uint64, err error) {
+func (ss *StateStore) GetCommit(ctx context.Context) (index uint64, err error) {
+	if isDeadCtx(ctx) {
+		return 0, ctx.Err()
+	}
+
 	err = ss.db.View(func(txn *badger.Txn) error {
 		index, err = getUint64(txn, commitKey)
 		return err
@@ -48,13 +66,21 @@ func (ss *StateStore) GetCommit() (index uint64, err error) {
 	return
 }
 
-func (ss *StateStore) SetVoted(index uint64) error {
+func (ss *StateStore) SetVoted(ctx context.Context, index uint64) error {
+	if isDeadCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return ss.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(votedKey, core.UintToKey(index))
 	})
 }
 
-func (ss *StateStore) GetVoted() (index uint64, err error) {
+func (ss *StateStore) GetVoted(ctx context.Context) (index uint64, err error) {
+	if isDeadCtx(ctx) {
+		return 0, ctx.Err()
+	}
+
 	err = ss.db.View(func(txn *badger.Txn) error {
 		index, err = getUint64(txn, votedKey)
 		return err
@@ -62,13 +88,21 @@ func (ss *StateStore) GetVoted() (index uint64, err error) {
 	return
 }
 
-func (ss *StateStore) SetLastApplied(index uint64) error {
+func (ss *StateStore) SetLastApplied(ctx context.Context, index uint64) error {
+	if isDeadCtx(ctx) {
+		return ctx.Err()
+	}
+
 	return ss.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(appliedKey, core.UintToKey(index))
 	})
 }
 
-func (ss *StateStore) GetLastApplied() (index uint64, err error) {
+func (ss *StateStore) GetLastApplied(ctx context.Context) (index uint64, err error) {
+	if isDeadCtx(ctx) {
+		return 0, ctx.Err()
+	}
+
 	err = ss.db.View(func(txn *badger.Txn) error {
 		index, err = getUint64(txn, appliedKey)
 		return err
