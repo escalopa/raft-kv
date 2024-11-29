@@ -29,6 +29,15 @@ service RaftService {
       description: "RequestVote for a candidate"
     };
   }
+
+  rpc Info(InfoRequest) returns (InfoResponse){
+    option (google.api.http) = {
+      get: "/raft/info"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      description: "Get Raft node info"
+    };
+  }
 }
 
 message AppendEntriesRequest{
@@ -56,6 +65,17 @@ message RequestVoteRequest {
 message RequestVoteResponse {
   uint64 term = 1;
   bool vote_granted = 2;
+}
+
+message InfoRequest {}
+
+message InfoResponse {
+  uint64 term = 1;
+  uint64 commit_index = 2;
+  uint64 last_applied = 3;
+  uint64 last_log_index = 4;
+  uint64 last_log_term = 5;
+  string state = 6;
 }
 
 message Entry {

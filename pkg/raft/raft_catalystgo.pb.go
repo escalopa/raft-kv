@@ -93,3 +93,21 @@ func (p *proxyRaftServiceServer) RequestVote(ctx context.Context, req *RequestVo
 
 	return resp.(*RequestVoteResponse), nil
 }
+
+func (p *proxyRaftServiceServer) Info(ctx context.Context, req *InfoRequest) (*InfoResponse, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     p.RaftServiceServer,
+		FullMethod: "/raft.RaftService/Info",
+	}
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return p.RaftServiceServer.Info(ctx, req.(*InfoRequest))
+	}
+
+	resp, err := p.interceptor(ctx, req, info, handler)
+	if err != nil || resp == nil {
+		return nil, err
+	}
+
+	return resp.(*InfoResponse), nil
+}

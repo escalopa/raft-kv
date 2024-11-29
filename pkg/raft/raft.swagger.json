@@ -49,6 +49,29 @@
         ]
       }
     },
+    "/raft/info": {
+      "get": {
+        "description": "Get Raft node info",
+        "operationId": "RaftService_Info",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/raft_pbInfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "RaftService"
+        ]
+      }
+    },
     "/raft/vote": {
       "post": {
         "description": "RequestVote for a candidate",
@@ -157,6 +180,34 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "raft_pbInfoResponse": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "commitIndex": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "lastApplied": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "lastLogIndex": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "lastLogTerm": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "state": {
+          "type": "string"
         }
       }
     },

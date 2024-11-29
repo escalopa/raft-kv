@@ -10,6 +10,7 @@ import (
 type Service interface {
 	AppendEntries(ctx context.Context, req *desc.AppendEntriesRequest) (*desc.AppendEntriesResponse, error)
 	RequestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error)
+	Info(ctx context.Context, req *desc.InfoRequest) (*desc.InfoResponse, error)
 }
 
 type Implementation struct {
