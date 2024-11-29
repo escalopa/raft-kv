@@ -1,64 +1,55 @@
 services:
   raft-kv-1:
+    image: escalopa/raft-kv:local
     container_name: raft-kv-1
-    build:
-        context: .
-        dockerfile: ./.catalystgo/Dockerfile
-        target: dev
     ports:
       - "6001:6000"
       - "7001:7000"
-      - "8081:8000"
+      - "8001:8000"
     environment:
-      - RAFT_NODE_ID=1
+      - RAFT_ID=1
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
     volumes:
-      - .:/go/src/github.com/escalopa/raft-kv
+      - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
       - raft-kv
 
   raft-kv-2:
+    image: escalopa/raft-kv:local
     container_name: raft-kv-2
-    build:
-      context: .
-      dockerfile: ./.catalystgo/Dockerfile
-      target: dev
     ports:
       - "6002:6000"
       - "7002:7000"
-      - "8082:8000"
+      - "8002:8000"
     environment:
-      - RAFT_NODE_ID=2
+      - RAFT_ID=2
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
     volumes:
-      - .:/go/src/github.com/escalopa/raft-kv
+      - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
       - raft-kv
 
   raft-kv-3:
+    image: escalopa/raft-kv:local
     container_name: raft-kv-3
-    build:
-      context: .
-      dockerfile: ./.catalystgo/Dockerfile
-      target: dev
     ports:
       - "6003:6000"
       - "7003:7000"
-      - "8083:8000"
+      - "8003:8000"
     environment:
-      - RAFT_NODE_ID=3
+      - RAFT_ID=3
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
     volumes:
-      - .:/go/src/github.com/escalopa/raft-kv
+      - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
       - raft-kv
 
