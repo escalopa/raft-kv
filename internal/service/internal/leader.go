@@ -12,7 +12,6 @@ import (
 
 const (
 	maxEntriesPerRequest = 1000
-	heartbeatFrequency   = 100 * time.Millisecond
 )
 
 type (
@@ -45,7 +44,7 @@ type LeaderFacade struct {
 	entryStore EntryStore
 	stateStore SimpleStateStore
 
-	stateUpdateChan chan<- core.StateUpdate
+	stateUpdateChan chan<- *core.StateUpdate
 
 	done chan struct{}
 }
@@ -55,9 +54,9 @@ func NewLeaderFacade(
 	servers map[core.ServerID]desc.RaftServiceClient,
 	entryStore EntryStore,
 	stateStore SimpleStateStore,
-	stateUpdateChan chan<- core.StateUpdate,
+	stateUpdateChan chan<- *core.StateUpdate,
 ) *LeaderFacade {
-	return &LeaderFacade{
+	lf := &LeaderFacade{
 		raftID:          raftID,
 		servers:         servers,
 		nextIndex:       make(map[core.ServerID]uint64),
@@ -65,11 +64,14 @@ func NewLeaderFacade(
 		entryStore:      entryStore,
 		stateStore:      stateStore,
 		stateUpdateChan: stateUpdateChan,
+		done:            make(chan struct{}),
 	}
+	close(lf.done) // initially closed
+	return lf
 }
 
 func (l *LeaderFacade) Start(ctx context.Context) error {
-	l.Stop() // stop any previous running goroutines
+	l.Stop(ctx) // stop any previous running goroutines
 	l.done = make(chan struct{})
 
 	entryLast, err := l.entryStore.Last(ctx)
@@ -89,30 +91,44 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 		go l.heartbeatLoop(ctx, id, server)
 	}
 
+	logger.WarnKV(ctx, "leader started", "raft_id", l.raftID)
+
 	return nil
 }
 
 func (l *LeaderFacade) heartbeatLoop(ctx context.Context, serverID core.ServerID, server desc.RaftServiceClient) {
-	ticker := time.NewTicker(heartbeatFrequency)
-	defer ticker.Stop()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	// capture the done channel (protects from running 2 sendHeartbeat
+	// when the leader is stopped and started quickly)
+	done := l.done
 
 	for {
+		timeout := time.Duration(core.RandInRange(50, 100)) * time.Millisecond
+		timer.Reset(timeout)
+
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			l.sendHeartbeat(ctx, serverID, server)
-		case <-l.done:
+		case <-done:
 			return
 		}
 	}
 }
 
 func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID, server desc.RaftServiceClient) {
+	term := l.stateStore.GetTerm()
+
 	entryLast, err := l.entryStore.Last(ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			logger.ErrorKV(ctx, "heartbeat last entry", "error", err)
 		}
-		return // no entries to send
+
+		// no entries to send (first run) but
+		// we still need to send the heartbeat
+		entryLast = &core.Entry{}
 	}
 
 	var (
@@ -122,7 +138,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 
 	entries, err := l.entryStore.Range(ctx, lowerBound, upperBound)
 	if err != nil {
-		logger.ErrorKV(ctx, "heartbeat range", "error", err, "server_id", serverID)
+		logger.ErrorKV(ctx, "heartbeat range", "error", err, "raft_id", serverID)
 		return
 	}
 
@@ -139,7 +155,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	entry, err := l.entryStore.At(ctx, lowerBound-1)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "heartbeat at", "error", err, "server_id", serverID)
+			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", serverID)
 			return
 		}
 		// no previous entry (first entry)
@@ -156,7 +172,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	}
 
 	res, err := server.AppendEntries(ctx, &desc.AppendEntriesRequest{
-		Term:         l.stateStore.GetTerm(),
+		Term:         term,
 		LeaderId:     uint64(l.raftID),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
@@ -164,12 +180,12 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 		Entries:      entriesDesc,
 	})
 	if err != nil {
-		logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "server_id", serverID)
+		logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", serverID)
 		return
 	}
 
-	if l.stateStore.GetTerm() < res.Term {
-		l.updateState(core.StateUpdate{
+	if term < res.Term {
+		l.sendStateUpdate(core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
 			Term: res.Term,
 		})
@@ -188,18 +204,19 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	l.matchIndex[serverID] = res.LastLogIndex
 }
 
+func (l *LeaderFacade) sendStateUpdate(update core.StateUpdate) {
+	update.Done = make(chan struct{})
+	l.stateUpdateChan <- &update
+	<-update.Done // wait for the update to be processed
+}
+
 // Stop stops the leader state machine and all its goroutines
 // It is safe to call this method multiple times
-func (l *LeaderFacade) Stop() {
+func (l *LeaderFacade) Stop(ctx context.Context) {
 	select {
 	case <-l.done: // already closed
 	default:
 		close(l.done)
+		logger.WarnKV(ctx, "leader stopped", "raft_id", l.raftID)
 	}
-}
-
-func (l *LeaderFacade) updateState(update core.StateUpdate) {
-	update.Done = make(chan struct{})
-	l.stateUpdateChan <- update
-	<-update.Done // wait for the update to be processed
 }

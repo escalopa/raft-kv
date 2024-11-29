@@ -2,20 +2,36 @@ package core
 
 type State string
 
+func (s State) String() string {
+	return string(s)
+}
+
 const (
-	Follower  State = "Follower"
-	Candidate State = "Candidate"
-	Leader    State = "Leader"
+	Follower  State = "follower"
+	Candidate State = "candidate"
+	Leader    State = "leader"
 )
 
 type StateUpdateType string
 
 const (
-	StateUpdateTypeTerm        StateUpdateType = "Term"
-	StateUpdateTypeVotedFor    StateUpdateType = "VotedFor"
+	// StateUpdateTypeTerm is used to update the term of the cluster
+	StateUpdateTypeTerm StateUpdateType = "Term"
+
+	// StateUpdateTypeVotedFor is used to update the voted for on election process
+	StateUpdateTypeVotedFor StateUpdateType = "VotedFor"
+
+	// StateUpdateTypeCommitIndex is used to update the commit index on the server storage
 	StateUpdateTypeCommitIndex StateUpdateType = "CommitIndex"
+
+	// StateUpdateTypeLastApplied is used to update the last applied index on the state machine
 	StateUpdateTypeLastApplied StateUpdateType = "LastApplied"
-	StateUpdateTypeState       StateUpdateType = "State"
+
+	// StateUpdateTypeState is used to update the state of the server (Follower, Candidate, Leader)
+	StateUpdateTypeState StateUpdateType = "State"
+
+	// StateUpdateTypeLeaderID is used to update the leader ID
+	StateUpdateTypeLeaderID StateUpdateType = "LeaderID"
 )
 
 type StateUpdate struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/escalopa/raft-kv/internal/service/internal"
-
 	"github.com/escalopa/raft-kv/internal/core"
+	"github.com/escalopa/raft-kv/internal/service/internal"
 	desc "github.com/escalopa/raft-kv/pkg/raft"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -46,21 +46,20 @@ type (
 )
 
 type RaftState struct {
-	ctx context.Context
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	raftID core.ServerID
 
-	state  *internal.StateFacade
-	leader *internal.LeaderFacade
+	state *internal.StateFacade
 
-	quorum   uint32
-	leaderID core.ServerID
+	quorum uint32
 
 	appendEntriesChan chan *appendEntriesRequest
 	requestVoteChan   chan *requestVoteRequest
 	replicateChan     chan *replicateRequest
 
-	stateUpdateChan chan<- core.StateUpdate
+	stateUpdateChan chan<- *core.StateUpdate
 
 	servers map[core.ServerID]desc.RaftServiceClient
 
@@ -69,6 +68,8 @@ type RaftState struct {
 	entryStore EntryStore
 	stateStore StateStore
 	kvStore    KVStore
+
+	wg sync.WaitGroup
 }
 
 func NewRaftState(
@@ -79,13 +80,18 @@ func NewRaftState(
 	stateStore StateStore,
 	kvStore KVStore,
 ) (*RaftState, error) {
+	ctx, cancel := context.WithCancel(ctx)
+
 	serversCount := len(cluster) + 1         // +1 for the current node
 	quorum := uint32((serversCount / 2) + 1) // +1 to get the majority
 
 	rf := &RaftState{
-		ctx: ctx,
+		ctx:    ctx,
+		cancel: cancel,
 
 		raftID: raftID,
+
+		servers: make(map[core.ServerID]desc.RaftServiceClient),
 
 		appendEntriesChan: make(chan *appendEntriesRequest),
 		requestVoteChan:   make(chan *requestVoteRequest),
@@ -105,17 +111,24 @@ func NewRaftState(
 		return nil, err
 	}
 
-	stateUpdateChan := make(chan core.StateUpdate)
+	stateUpdateChan := make(chan *core.StateUpdate)
 	rf.stateUpdateChan = stateUpdateChan
 
-	rf.state = internal.NewStateFacade(ctx, stateStore, stateUpdateChan)
-	rf.leader = internal.NewLeaderFacade(raftID, rf.servers, entryStore, rf.state, stateUpdateChan)
-	// TODO: think how to stop leader on state change
-	// TODO: think how and when to commit entries
+	rf.state, err = internal.NewStateFacade(ctx, stateStore, stateUpdateChan)
+	if err != nil {
+		return nil, err
+	}
+
+	leaderFacade := internal.NewLeaderFacade(raftID, rf.servers, entryStore, rf.state, stateUpdateChan)
+	rf.state.SetLeader(leaderFacade)
+
+	rf.wg.Add(5)
 
 	go rf.processAppendEntries()
 	go rf.processRequestVote()
 	go rf.processReplicate()
+	go rf.processCommit()
+	go rf.processElection()
 
 	return rf, nil
 }
@@ -193,12 +206,39 @@ func (rf *RaftState) RequestVote(ctx context.Context, req *desc.RequestVoteReque
 	}
 }
 
-func (rf *RaftState) updateState(update core.StateUpdate) {
+func (rf *RaftState) Info(ctx context.Context, _ *desc.InfoRequest) (*desc.InfoResponse, error) {
+	entry, err := rf.entryStore.Last(ctx)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			return nil, err
+		}
+		entry = &core.Entry{}
+	}
+
+	return &desc.InfoResponse{
+		Term:         rf.state.GetTerm(),
+		CommitIndex:  rf.state.GetCommitIndex(),
+		LastApplied:  rf.state.GetLastApplied(),
+		LastLogIndex: entry.Index,
+		LastLogTerm:  entry.Term,
+		State:        rf.state.GetState().String(),
+	}, nil
+}
+
+func (rf *RaftState) sendStateUpdate(update core.StateUpdate) {
 	update.Done = make(chan struct{})
-	rf.stateUpdateChan <- update
+	rf.stateUpdateChan <- &update
 	<-update.Done // wait for the update to be processed
 }
 
 func (rf *RaftState) resetElectionTimer() {
-	rf.heartbeat <- struct{}{}
+	select {
+	case rf.heartbeat <- struct{}{}:
+	default: // drop the heartbeat if it's not currently needed
+	}
+}
+
+func (rf *RaftState) Close() {
+	rf.cancel()
+	rf.wg.Wait()
 }
