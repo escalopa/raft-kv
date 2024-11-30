@@ -76,40 +76,6 @@ func TestStore_SetCommit(t *testing.T) {
 	}
 }
 
-func TestStore_SetVoted(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		voted uint64
-	}{
-		{
-			name:  "set_voted",
-			voted: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			db, closer := test.NewDB(t)
-			defer closer(t)
-
-			ctx := context.Background()
-			store := NewStateStore(db)
-
-			err := store.SetVoted(ctx, tt.voted)
-			require.NoError(t, err)
-
-			storedVoted, err := store.GetVoted(ctx)
-			require.NoError(t, err)
-			require.Equal(t, uint64(1), storedVoted)
-
-		})
-	}
-}
-
 func TestStore_SetApplied(t *testing.T) {
 	t.Parallel()
 

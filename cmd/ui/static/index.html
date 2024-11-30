@@ -20,6 +20,9 @@
         .btn {
             width: 100%;
         }
+        .output-textarea {
+            width: 100%;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -51,6 +54,7 @@
 <script>
     let host = 'localhost';
     let serverPorts = [7001];
+    let previousInfo = {};
 
     function setServerCount() {
         const serverCount = parseInt(document.getElementById('serverCount').value);
@@ -60,9 +64,11 @@
     }
 
     function setInfoInterval() {
+        // stop the previous intervals if any
+        serverPorts.forEach(port => clearInterval(previousInfo[port]));
         const interval = document.getElementById('infoInterval').value;
         serverPorts.forEach(port => {
-            setInterval(() => fetchInfo(port), interval);
+            previousInfo[port] = setInterval(() => fetchInfo(port), interval);
         });
     }
 
@@ -73,17 +79,19 @@
     function renderServerControls() {
         const serversContainer = document.getElementById('serversContainer');
         const table = document.createElement('table');
-        table.className = 'table table-bordered';
+        table.className = 'table table-bordered table-striped';
 
         const thead = document.createElement('thead');
         thead.innerHTML = `
-                <tr>
-                    <th>Raft ID</th>
-                    <th>Info</th>
-                    <th>Get</th>
-                    <th>Set</th>
-                    <th>Delete</th>
-                </tr>
+              <thead>
+                  <tr>
+                        <th>Raft ID</th>
+                        <th>Info</th>
+                        <th>Get</th>
+                        <th>Set</th>
+                        <th>Del</th>
+                  </tr>
+              </thead>
             `;
         table.appendChild(thead);
 
@@ -91,55 +99,30 @@
 
         serverPorts.forEach(port => {
             const raftID = port - 7000;
-            const buttonRow = document.createElement('tr');
-            buttonRow.innerHTML = `
-                    <td rowspan="3">${raftID}</td>
-                    <td rowspan="3">
-                        <textarea id="infoOutput${port}" class="form-control mt-2" rows="12"></textarea>
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td>${raftID}</td>
+                    <td>
+                        <textarea id="infoOutput${port}" class="form-control mt-2 output-textarea" rows="12"></textarea>
                     </td>
-                    <td class="action-buttons">
+                    <td>
                         <button class="btn btn-primary mb-2" onclick="getKey(${port})">Get</button>
-                    </td>
-                    <td class="action-buttons">
-                        <button class="btn btn-success mb-2" onclick="setKeyValue(${port})">Set</button>
-                    </td>
-                    <td class="action-buttons">
-                        <button class="btn btn-danger" onclick="deleteKey(${port})">Delete</button>
-                    </td>
-                `;
-            tbody.appendChild(buttonRow);
-
-            const inputRow = document.createElement('tr');
-            inputRow.innerHTML = `
-
-
-                    <td>
                         <input type="text" id="getKey${port}" class="form-control mb-2" placeholder="Key">
+                        <textarea id="getOutput${port}" class="form-control mt-2 output-textarea" rows="2"></textarea>
                     </td>
                     <td>
+                        <button class="btn btn-success mb-2" onclick="setKeyValue(${port})">Set</button>
                         <input type="text" id="setKey${port}" class="form-control mb-2" placeholder="Key">
                         <input type="text" id="setValue${port}" class="form-control mb-2" placeholder="Value">
+                        <textarea id="setOutput${port}" class="form-control mt-2 output-textarea" rows="2"></textarea>
                     </td>
                     <td>
-                        <input type="text" id="delKey${port}" class="form-control mt-2" placeholder="Key">
+                        <button class="btn btn-danger mb-2" onclick="deleteKey(${port})">Del</button>
+                        <input type="text" id="delKey${port}" class="form-control mb-2" placeholder="Key">
+                        <textarea id="delOutput${port}" class="form-control mt-2 output-textarea" rows="2"></textarea>
                     </td>
                 `;
-            tbody.appendChild(inputRow);
-
-            const outputRow = document.createElement('tr');
-            outputRow.innerHTML = `
-
-                    <td>
-                        <textarea id="getOutput${port}" class="form-control mt-2" rows="2"></textarea>
-                    </td>
-                    <td>
-                        <textarea id="setOutput${port}" class="form-control mt-2" rows="2"></textarea>
-                    </td>
-                    <td>
-                        <textarea id="delOutput${port}" class="form-control mt-2" rows="2"></textarea>
-                    </td>
-                `;
-            tbody.appendChild(outputRow);
+            tbody.appendChild(row);
         });
 
         table.appendChild(tbody);
@@ -190,6 +173,8 @@
     function updateOutput(elementId, data, success) {
         const outputElement = document.getElementById(elementId);
         outputElement.value = JSON.stringify(data, null, 2);
+        outputElement.style.height = "1px";
+        outputElement.style.height = (25+outputElement.scrollHeight)+"px";
         if (success) {
             outputElement.classList.add('border-success');
             outputElement.classList.remove('border-danger');
@@ -197,6 +182,10 @@
             outputElement.classList.add('border-danger');
             outputElement.classList.remove('border-success');
         }
+    }
+
+    function textAreaAdjust(element) {
+
     }
 
     renderServerControls();

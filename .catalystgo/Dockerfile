@@ -1,7 +1,7 @@
 FROM golang:alpine3.20 AS dev
 WORKDIR /go/src/github.com/escalopa/raft-kv
 COPY . .
-RUN go mod download
+RUN go mod tidy
 RUN mkdir -p /data/{entry,state,kv}
 ENTRYPOINT ["go", "run", "./cmd/raft-kv/main.go", "--config", ".catalystgo/config-local.yml"]
 

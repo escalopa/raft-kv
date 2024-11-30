@@ -61,16 +61,18 @@ func main() {
 	// Init Raft state
 	raftState, err := service.NewRaftState(
 		app.Ctx(),
+		appCfg,
 		appCfg.Raft.ID,
 		appCfg.Raft.Cluster,
 		entryStore,
 		stateStore,
 		kvStore,
 	)
-
 	if err != nil {
 		logger.Fatalf(app.Ctx(), "init raft state: %v", err)
 	}
+
+	raftState.Run()
 
 	kvService := kv.NewKVService(raftState)
 	raftService := raft.NewRaftService(raftState)

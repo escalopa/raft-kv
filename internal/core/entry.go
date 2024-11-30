@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/binary"
 	"encoding/json"
-	"math/rand/v2"
 )
 
 type Command string
@@ -52,8 +51,4 @@ func UintToKey(index uint64) []byte {
 
 func KeyToUint(b []byte) uint64 {
 	return binary.BigEndian.Uint64(b)
-}
-
-func RandInRange(min, max int) int {
-	return min + rand.IntN(max-min)
 }

@@ -1,6 +1,6 @@
 services:
   raft-kv-1:
-    image: dekuyo/raft-kv:local
+    image: dekuyo/raft-kv:dev
     container_name: raft-kv-1
     ports:
       - "6001:6000"
@@ -18,7 +18,7 @@ services:
       - raft-kv
 
   raft-kv-2:
-    image: dekuyo/raft-kv:local
+    image: dekuyo/raft-kv:dev
     container_name: raft-kv-2
     ports:
       - "6002:6000"
@@ -36,7 +36,7 @@ services:
       - raft-kv
 
   raft-kv-3:
-    image: dekuyo/raft-kv:local
+    image: dekuyo/raft-kv:dev
     container_name: raft-kv-3
     ports:
       - "6003:6000"
@@ -54,7 +54,7 @@ services:
       - raft-kv
 
   raft-kv-4:
-    image: dekuyo/raft-kv:local
+    image: dekuyo/raft-kv:dev
     container_name: raft-kv-4
     ports:
       - "6004:6000"
@@ -72,7 +72,7 @@ services:
       - raft-kv
 
   raft-kv-5:
-    image: dekuyo/raft-kv:local
+    image: dekuyo/raft-kv:dev
     container_name: raft-kv-5
     ports:
       - "6005:6000"
