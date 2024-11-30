@@ -8,6 +8,7 @@ import (
 	"github.com/escalopa/raft-kv/internal/core"
 	desc "github.com/escalopa/raft-kv/pkg/raft"
 	"github.com/pkg/errors"
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 const (
@@ -35,11 +36,11 @@ type LeaderFacade struct {
 
 	// nextIndex index for each server of the next log entry to send to that server
 	// initialized to leader last log index + 1
-	nextIndex map[core.ServerID]uint64
+	nextIndex *xsync.MapOf[core.ServerID, uint64]
 
 	// matchIndex index for each server of highest log entry known to be replicated on server
 	// initialized to 0, increases monotonically
-	matchIndex map[core.ServerID]uint64
+	matchIndex *xsync.MapOf[core.ServerID, uint64]
 
 	entryStore EntryStore
 	stateStore SimpleStateStore
@@ -59,8 +60,8 @@ func NewLeaderFacade(
 	lf := &LeaderFacade{
 		raftID:          raftID,
 		servers:         servers,
-		nextIndex:       make(map[core.ServerID]uint64),
-		matchIndex:      make(map[core.ServerID]uint64),
+		nextIndex:       xsync.NewMapOf[core.ServerID, uint64](),
+		matchIndex:      xsync.NewMapOf[core.ServerID, uint64](),
 		entryStore:      entryStore,
 		stateStore:      stateStore,
 		stateUpdateChan: stateUpdateChan,
@@ -82,9 +83,9 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 		entryLast = &core.Entry{}
 	}
 
-	for id := range l.servers {
-		l.nextIndex[id] = entryLast.Index + 1
-		l.matchIndex[id] = 0
+	for raftID := range l.servers {
+		l.nextIndex.Store(raftID, entryLast.Index+1)
+		l.matchIndex.Store(raftID, 0)
 	}
 
 	for id, server := range l.servers {
@@ -132,8 +133,8 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	}
 
 	var (
-		lowerBound = l.nextIndex[serverID]
-		upperBound = min(entryLast.Index, lowerBound+maxEntriesPerRequest-1) // inclusive
+		lowerBound, _ = l.nextIndex.Load(serverID)
+		upperBound    = min(entryLast.Index, lowerBound+maxEntriesPerRequest-1) // inclusive
 	)
 
 	entries, err := l.entryStore.Range(ctx, lowerBound, upperBound)
@@ -194,14 +195,14 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 
 	// If the follower is up to date, then we can update the nextIndex and matchIndex
 	if res.Success {
-		l.nextIndex[serverID] = upperBound + 1
-		l.matchIndex[serverID] = upperBound
+		l.nextIndex.Store(serverID, upperBound+1)
+		l.matchIndex.Store(serverID, upperBound)
 		return
 	}
 
 	// If the follower is behind, then we need to send the missing entries
-	l.nextIndex[serverID] = res.LastLogIndex + 1
-	l.matchIndex[serverID] = res.LastLogIndex
+	l.nextIndex.Store(serverID, res.LastLogIndex+1)
+	l.matchIndex.Store(serverID, res.LastLogIndex)
 }
 
 func (l *LeaderFacade) sendStateUpdate(update core.StateUpdate) {

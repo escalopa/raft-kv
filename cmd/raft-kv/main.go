@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	logger.SetLogger(logger.New(zapcore.WarnLevel))
+	logger.SetLevel(zapcore.WarnLevel)
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 
 	app, err := catalystgo.New()
