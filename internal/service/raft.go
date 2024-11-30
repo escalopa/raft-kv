@@ -38,6 +38,18 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		}
 	)
 
+	lastEntry, err := rf.entryStore.Last(ctx)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			logger.ErrorKV(ctx, "append entries last", "error", err)
+			return nil, err
+		}
+		// no entry yet in log
+		lastEntry = &core.Entry{}
+	}
+
+	response.LastLogIndex = lastEntry.Index
+
 	// Reply false if term < currentTerm
 	if req.Term < term {
 		return response, nil
@@ -113,6 +125,15 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		})
 	}
 
+	// If this was a replicate message print progress in the log
+	if len(entries) > 0 {
+		e := entries[len(entries)-1]
+		logger.WarnKV(ctx, "replicated an entry",
+			"last_entry_term", e.Term,
+			"last_entry_index", e.Index,
+		)
+	}
+
 	response.Success = true
 	return response, nil
 }
@@ -179,8 +200,11 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 			})
 
 			response.VoteGranted = true
-			return response, nil
 		}
+	}
+
+	if response.VoteGranted {
+		logger.WarnKV(ctx, "voted given", "raft_id", req.CandidateId)
 	}
 
 	return response, nil
@@ -392,7 +416,7 @@ func (rf *RaftState) processElection() {
 		}
 
 		if !rf.state.IsLeader() {
-			logger.WarnKV(rf.ctx, "starting election", "raft_id", rf.raftID)
+			logger.WarnKV(rf.ctx, "starting election")
 			rf.startElection(rf.ctx)
 		}
 	}
@@ -426,14 +450,13 @@ func (rf *RaftState) startElection(ctx context.Context) {
 		done = make(chan struct{})
 	)
 
-	logger.ErrorKV(ctx, "election info",
-		"raft_id", rf.raftID,
+	logger.WarnKV(ctx, "election info",
 		"term", term,
 		"last_log_index", entry.Index,
 		"last_log_term", entry.Term,
 	)
 
-	for serverID, server := range rf.servers {
+	for raftID, server := range rf.servers {
 		errG.Go(func() error {
 			res, err := server.RequestVote(ctx, &desc.RequestVoteRequest{
 				Term:         term,
@@ -443,7 +466,7 @@ func (rf *RaftState) startElection(ctx context.Context) {
 			})
 
 			if err != nil {
-				logger.ErrorKV(ctx, "election request vote", "error", err, "voter", serverID)
+				logger.ErrorKV(ctx, "election request vote", "error", err, "voter", raftID)
 				return nil
 			}
 
@@ -458,13 +481,13 @@ func (rf *RaftState) startElection(ctx context.Context) {
 			if res.VoteGranted {
 				select {
 				case responseChan <- struct{}{}:
-					logger.WarnKV(ctx, "vote granted", "raft_id", rf.raftID, "voter", serverID)
+					logger.WarnKV(ctx, "vote granted", "voter", raftID)
 				case <-done: // ignore the rest of the responses
 				}
 				return nil
 			}
 
-			logger.WarnKV(ctx, "vote not granted", "raft_id", rf.raftID, "voter", serverID)
+			logger.WarnKV(ctx, "vote not granted", "voter", raftID)
 
 			return nil
 		})
@@ -480,7 +503,7 @@ func (rf *RaftState) startElection(ctx context.Context) {
 		votes++
 
 		if votes == rf.quorum {
-			logger.WarnKV(ctx, "election won", "raft_id", rf.raftID)
+			logger.WarnKV(ctx, "election won")
 
 			rf.sendStateUpdate(core.StateUpdate{
 				Type:  core.StateUpdateTypeState,

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/catalystgo/logger/logger"
@@ -57,6 +58,7 @@ type LeaderFacade struct {
 	stateUpdateChan chan<- *core.StateUpdate
 
 	done chan struct{}
+	wg   sync.WaitGroup
 }
 
 func NewLeaderFacade(
@@ -105,16 +107,19 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 		l.matchIndex.Store(raftID, 0)
 	}
 
+	l.wg.Add(len(l.servers))
 	for id, server := range l.servers {
 		go l.heartbeatLoop(ctx, id, server)
 	}
 
-	logger.WarnKV(ctx, "leader started", "raft_id", l.raftID)
+	logger.WarnKV(ctx, "leader started")
 
 	return nil
 }
 
-func (l *LeaderFacade) heartbeatLoop(ctx context.Context, serverID core.ServerID, server desc.RaftServiceClient) {
+func (l *LeaderFacade) heartbeatLoop(ctx context.Context, raftID core.ServerID, server desc.RaftServiceClient) {
+	defer l.wg.Done()
+
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
@@ -122,19 +127,22 @@ func (l *LeaderFacade) heartbeatLoop(ctx context.Context, serverID core.ServerID
 	// when the leader is stopped and started quickly)
 	done := l.done
 
+	logger.WarnKV(ctx, "start heartbeat loop", "raft_id", raftID)
+
 	for {
 		timer.Reset(l.config.GetHeartbeatPeriod())
 
 		select {
 		case <-timer.C:
-			l.sendHeartbeat(ctx, serverID, server)
+			l.sendHeartbeat(ctx, raftID, server)
 		case <-done:
+			logger.WarnKV(ctx, "stop heartbeat loop", "raft_id", raftID)
 			return
 		}
 	}
 }
 
-func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID, server desc.RaftServiceClient) {
+func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, server desc.RaftServiceClient) {
 	term := l.stateStore.GetTerm()
 
 	entryLast, err := l.entryStore.Last(ctx)
@@ -149,13 +157,13 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	}
 
 	var (
-		lowerBound, _ = l.nextIndex.Load(serverID)
+		lowerBound, _ = l.nextIndex.Load(raftID)
 		upperBound    = min(entryLast.Index, lowerBound+maxEntriesPerRequest-1) // inclusive
 	)
 
 	entries, err := l.entryStore.Range(ctx, lowerBound, upperBound)
 	if err != nil {
-		logger.ErrorKV(ctx, "heartbeat range", "error", err, "raft_id", serverID)
+		logger.ErrorKV(ctx, "heartbeat range", "error", err, "raft_id", raftID)
 		return
 	}
 
@@ -172,7 +180,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 	entry, err := l.entryStore.At(ctx, lowerBound-1)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", serverID)
+			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", raftID)
 			return
 		}
 		// no previous entry (first entry)
@@ -197,8 +205,8 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 		Entries:      entriesDesc,
 	})
 	if err != nil {
-		if l.logEnabled(serverID, err) {
-			logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", serverID)
+		if l.logEnabled(raftID, err) {
+			logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", raftID)
 		}
 		return
 	}
@@ -213,14 +221,21 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 
 	// If the follower is up to date, then we can update the nextIndex and matchIndex
 	if res.Success {
-		l.nextIndex.Store(serverID, upperBound+1)
-		l.matchIndex.Store(serverID, upperBound)
+		l.nextIndex.Store(raftID, upperBound+1)
+		l.matchIndex.Store(raftID, upperBound)
 		return
 	}
 
-	// If the follower is behind, then we need to send the missing entries
-	l.nextIndex.Store(serverID, res.LastLogIndex+1)
-	l.matchIndex.Store(serverID, res.LastLogIndex)
+	// On the next heartbeat send from the latest log + 1
+	nextIndex := res.LastLogIndex + 1
+
+	// If prevLogIndex is less than the latest log on the follower, that means the follower has some
+	// inconsistent data that need to be cleaned therefore we decrement the log by -1
+	if res.LastLogIndex >= prevLogIndex {
+		nextIndex = prevLogIndex - 1
+	}
+
+	l.nextIndex.Store(raftID, nextIndex)
 }
 
 func (l *LeaderFacade) sendStateUpdate(update core.StateUpdate) {
@@ -236,8 +251,9 @@ func (l *LeaderFacade) Stop(ctx context.Context) {
 	case <-l.done: // already closed
 	default:
 		close(l.done)
-		logger.WarnKV(ctx, "leader stopped", "raft_id", l.raftID)
+		logger.WarnKV(ctx, "leader stopped")
 	}
+	l.wg.Wait()
 }
 
 // logEnabled returns true if the server is allowed to log the error
