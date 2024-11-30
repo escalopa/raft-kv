@@ -115,7 +115,7 @@ tasks:
 
   docker-up-dev:
     cmds:
-      - docker compose --file .catalystgo/docker-compose-dev.yml up
+      - docker compose --file .catalystgo/docker-compose-dev.yml up -d
 
   docker-down-dev:
     cmds:

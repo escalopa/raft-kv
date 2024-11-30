@@ -94,7 +94,7 @@ services:
       - "8090:8000"
       - "9000:9000"
     volumes:
-      - data:/data
+      - portainer_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
@@ -103,4 +103,4 @@ networks:
         driver: bridge
 
 volumes:
-  data:
+  portainer_data:
