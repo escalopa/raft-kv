@@ -1,6 +1,6 @@
 services:
   raft-kv-1:
-    image: escalopa/raft-kv:latest
+    image: dekuyo/raft-kv:latest
     container_name: raft-kv-1
     ports:
       - "6001:6000"
@@ -16,7 +16,7 @@ services:
       - raft-kv
 
   raft-kv-2:
-    image: escalopa/raft-kv:latest
+    image: dekuyo/raft-kv:latest
     container_name: raft-kv-2
     ports:
       - "6002:6000"
@@ -32,7 +32,7 @@ services:
       - raft-kv
 
   raft-kv-3:
-    image: escalopa/raft-kv:latest
+    image: dekuyo/raft-kv:latest
     container_name: raft-kv-3
     ports:
       - "6003:6000"
@@ -48,7 +48,7 @@ services:
       - raft-kv
 
   raft-kv-4:
-    image: escalopa/raft-kv:latest
+    image: dekuyo/raft-kv:latest
     container_name: raft-kv-4
     ports:
       - "6004:6000"
@@ -64,7 +64,7 @@ services:
       - raft-kv
 
   raft-kv-5:
-    image: escalopa/raft-kv:latest
+    image: dekuyo/raft-kv:latest
     container_name: raft-kv-5
     ports:
       - "6005:6000"
