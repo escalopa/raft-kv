@@ -54,6 +54,7 @@
 <script>
     let host = 'localhost';
     let serverPorts = [7001];
+    let previousInfo = {};
 
     function setServerCount() {
         const serverCount = parseInt(document.getElementById('serverCount').value);
@@ -63,9 +64,11 @@
     }
 
     function setInfoInterval() {
+        // stop the previous intervals if any
+        serverPorts.forEach(port => clearInterval(previousInfo[port]));
         const interval = document.getElementById('infoInterval').value;
         serverPorts.forEach(port => {
-            setInterval(() => fetchInfo(port), interval);
+            previousInfo[port] = setInterval(() => fetchInfo(port), interval);
         });
     }
 
@@ -86,7 +89,7 @@
                         <th>Info</th>
                         <th>Get</th>
                         <th>Set</th>
-                        <th>Delete</th>
+                        <th>Del</th>
                   </tr>
               </thead>
             `;
@@ -114,7 +117,7 @@
                         <textarea id="setOutput${port}" class="form-control mt-2 output-textarea" rows="2"></textarea>
                     </td>
                     <td>
-                        <button class="btn btn-danger mb-2" onclick="deleteKey(${port})">Delete</button>
+                        <button class="btn btn-danger mb-2" onclick="deleteKey(${port})">Del</button>
                         <input type="text" id="delKey${port}" class="form-control mb-2" placeholder="Key">
                         <textarea id="delOutput${port}" class="form-control mt-2 output-textarea" rows="2"></textarea>
                     </td>
