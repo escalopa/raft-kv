@@ -48,6 +48,9 @@ type LeaderFacade struct {
 	// initialized to 0, increases monotonically
 	matchIndex *xsync.MapOf[core.ServerID, uint64]
 
+	// errorScheduler map of serverID and error message timestamp
+	errorScheduler *xsync.MapOf[core.ServerID, map[string]time.Time]
+
 	entryStore EntryStore
 	stateStore SimpleStateStore
 
@@ -70,11 +73,17 @@ func NewLeaderFacade(
 		servers:         servers,
 		nextIndex:       xsync.NewMapOf[core.ServerID, uint64](),
 		matchIndex:      xsync.NewMapOf[core.ServerID, uint64](),
+		errorScheduler:  xsync.NewMapOf[core.ServerID, map[string]time.Time](),
 		entryStore:      entryStore,
 		stateStore:      stateStore,
 		stateUpdateChan: stateUpdateChan,
 		done:            make(chan struct{}),
 	}
+
+	for internalRaftID := range servers {
+		lf.errorScheduler.Store(internalRaftID, make(map[string]time.Time))
+	}
+
 	close(lf.done) // initially closed
 	return lf
 }
@@ -188,7 +197,9 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, serverID core.ServerID
 		Entries:      entriesDesc,
 	})
 	if err != nil {
-		logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", serverID)
+		if l.logEnabled(serverID, err) {
+			logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", serverID)
+		}
 		return
 	}
 
@@ -227,4 +238,28 @@ func (l *LeaderFacade) Stop(ctx context.Context) {
 		close(l.done)
 		logger.WarnKV(ctx, "leader stopped", "raft_id", l.raftID)
 	}
+}
+
+// logEnabled returns true if the server is allowed to log the error
+// only one error type per second is allowed to be logged for each server
+func (l *LeaderFacade) logEnabled(serverID core.ServerID, err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if _, ok := l.servers[serverID]; !ok {
+		return false
+	}
+
+	lastError, ok := l.errorScheduler.Load(serverID)
+	if !ok {
+		return true
+	}
+
+	if time.Since(lastError[err.Error()]) > time.Second {
+		lastError[err.Error()] = time.Now()
+		return true
+	}
+
+	return false
 }

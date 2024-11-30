@@ -104,7 +104,8 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 
 	rf.resetElectionTimer()
 
-	if rf.state.IsLeader() {
+	state := rf.state.GetState()
+	if state == core.Leader || state == core.Candidate {
 		rf.sendStateUpdate(core.StateUpdate{
 			Type:     core.StateUpdateTypeState,
 			State:    core.Follower,
