@@ -51,7 +51,9 @@ func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([
 			return nil, errors.Errorf("empty node address at RAFT_CLUSTER[%d](%s)", i, node)
 		}
 
-		// AppendEntry node
+		// TODO: validate address format (e.g. IP:PORT)
+
+		// Append node
 		nodes = append(nodes, core.Node{
 			ID:      core.ServerID(id),
 			Address: address,

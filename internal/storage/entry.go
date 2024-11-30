@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/dgraph-io/badger/v4"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
@@ -18,7 +20,11 @@ func NewEntryStore(db *badger.DB) *EntryStore {
 	return &EntryStore{db: db}
 }
 
-func (es *EntryStore) AppendEntry(entries ...*core.Entry) error {
+func (es *EntryStore) AppendEntries(ctx context.Context, entries ...*core.Entry) error {
+	if isDeadCtx(ctx) {
+		return ctx.Err()
+	}
+
 	if len(entries) == 0 {
 		return nil
 	}
@@ -54,7 +60,11 @@ func (es *EntryStore) AppendEntry(entries ...*core.Entry) error {
 	})
 }
 
-func (es *EntryStore) Last() (entry *core.Entry, err error) {
+func (es *EntryStore) Last(ctx context.Context) (entry *core.Entry, err error) {
+	if isDeadCtx(ctx) {
+		return nil, ctx.Err()
+	}
+
 	err = es.db.View(func(txn *badger.Txn) error {
 		index, err := getUint64(txn, logKey)
 		if err != nil {
@@ -71,7 +81,11 @@ func (es *EntryStore) Last() (entry *core.Entry, err error) {
 	return
 }
 
-func (es *EntryStore) At(index uint64) (entry *core.Entry, err error) {
+func (es *EntryStore) At(ctx context.Context, index uint64) (entry *core.Entry, err error) {
+	if isDeadCtx(ctx) {
+		return nil, ctx.Err()
+	}
+
 	err = es.db.View(func(txn *badger.Txn) error {
 		entry, err = getEntry(txn, core.UintToKey(index))
 		return err
@@ -79,13 +93,16 @@ func (es *EntryStore) At(index uint64) (entry *core.Entry, err error) {
 	return
 }
 
-func (es *EntryStore) Range(start, end uint64) (entries []*core.Entry, err error) {
+func (es *EntryStore) Range(ctx context.Context, start, end uint64) (entries []*core.Entry, err error) {
+	if isDeadCtx(ctx) {
+		return nil, ctx.Err()
+	}
+
 	err = es.db.View(func(txn *badger.Txn) error {
 		size := end - start + 1
 
-		// TODO: move check to business layer
 		if size <= 0 {
-			return nil
+			return nil // TODO: return an error
 		}
 
 		entries = make([]*core.Entry, 0, size)

@@ -7,8 +7,8 @@ import (
 	desc "github.com/escalopa/raft-kv/pkg/raft"
 )
 
-func (i *Implementation) AppendEntry(ctx context.Context, req *desc.AppendEntryRequest) (*desc.AppendEntryResponse, error) {
-	resp, err := i.srv.AppendEntry(ctx, req)
+func (i *Implementation) Info(ctx context.Context, req *desc.InfoRequest) (*desc.InfoResponse, error) {
+	resp, err := i.srv.Info(ctx, req)
 	if err != nil {
 		return nil, core.ToGrpcError(err)
 	}

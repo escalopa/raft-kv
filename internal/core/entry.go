@@ -3,6 +3,18 @@ package core
 import (
 	"encoding/binary"
 	"encoding/json"
+	"math/rand/v2"
+)
+
+type Command string
+
+func (c Command) String() string {
+	return string(c)
+}
+
+const (
+	Set Command = "SET"
+	Del Command = "DEL"
 )
 
 type Entry struct {
@@ -12,20 +24,13 @@ type Entry struct {
 	// Index is the index of the log entry
 	Index uint64 `json:"index"`
 
-	// Cmd is the command of the log entry (e.g. "SET key value" or "DEL key"
-	// while "GET" command is not logged since it doesn't change the state
-	Cmd string `json:"cmd"`
+	// Data is the command of the log entry as an array of strings
+	// Example: ["SET", "key", "value"], ["DEL", "key"]
+	Data []string `json:"data"`
 }
 
 func (e *Entry) ToBytes() ([]byte, error) {
 	return json.Marshal(e)
-}
-
-func (e *Entry) IsEqual(other *Entry) bool {
-	if other == nil {
-		return false
-	}
-	return e.Term == other.Term && e.Index == other.Index && e.Cmd == other.Cmd
 }
 
 func EntryFromBytes(bytes []byte) (*Entry, error) {
@@ -47,4 +52,8 @@ func UintToKey(index uint64) []byte {
 
 func KeyToUint(b []byte) uint64 {
 	return binary.BigEndian.Uint64(b)
+}
+
+func RandInRange(min, max int) int {
+	return min + rand.IntN(max-min)
 }

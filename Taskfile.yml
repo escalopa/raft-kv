@@ -5,12 +5,18 @@ vars:
   GOBIN: "$(pwd)/bin"
 
   # docker
+  VERSION: "latest"
+
   DOCKER_IMAGE: "escalopa/raft-kv"
 
 tasks:
   run:
     cmds:
       - go run ./cmd/raft-kv/. --config .catalystgo/config-local.yml
+
+  ui:
+    cmds:
+      - go run ./cmd/ui/main.go
 
   mock:
     cmds:
@@ -88,11 +94,13 @@ tasks:
       - GOBIN={{.GOBIN}} go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
 
 # docker
+  docker-dev-build:
+    cmds:
+     - docker build --file ./.catalystgo/Dockerfile --tag escalopa/raft-kv:dev --target dev --no-cache .
 
   docker-build:
     cmds:
-      - docker build --tag {{.DOCKER_IMAGE}}:{{.VERSION}} .
-        --no-cache
+      - docker build --file ./.catalystgo/Dockerfile --tag {{.DOCKER_IMAGE}}:{{.VERSION}} --target production --no-cache .
 
   docker-push:
     cmds:
@@ -102,6 +110,23 @@ tasks:
     cmds:
       - task: docker-build
       - task: docker-push
+
+# docker-compose
+
+  docker-dev-up:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose-dev.yml up
+
+  docker-dev-down:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose-dev.yml down
+
+  docker-up:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose.yml up
+  docker-down:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose.yml down
 
 # internal
 

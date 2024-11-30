@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 
 	"github.com/catalystgo/catalystgo"
 	"github.com/catalystgo/catalystgo/closer"
@@ -11,9 +12,14 @@ import (
 	"github.com/escalopa/raft-kv/internal/config"
 	"github.com/escalopa/raft-kv/internal/service"
 	"github.com/escalopa/raft-kv/internal/storage"
+	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/grpclog"
 )
 
 func main() {
+	logger.SetLevel(zapcore.WarnLevel)
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
+
 	app, err := catalystgo.New()
 	if err != nil {
 		logger.Fatalf(context.Background(), "init app: %v", err)
@@ -69,7 +75,12 @@ func main() {
 	kvService := kv.NewKVService(raftState)
 	raftService := raft.NewRaftService(raftState)
 
-	if err := app.Run(kvService, raftService); err != nil {
+	services := []catalystgo.Service{
+		kvService,
+		raftService,
+	}
+
+	if err := app.Run(services...); err != nil {
 		logger.Fatalf(app.Ctx(), "app run: %v", err)
 	}
 }

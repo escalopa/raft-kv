@@ -58,14 +58,14 @@ type proxyRaftServiceServer struct {
 	interceptor grpc.UnaryServerInterceptor
 }
 
-func (p *proxyRaftServiceServer) AppendEntry(ctx context.Context, req *AppendEntryRequest) (*AppendEntryResponse, error) {
+func (p *proxyRaftServiceServer) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*AppendEntriesResponse, error) {
 	info := &grpc.UnaryServerInfo{
 		Server:     p.RaftServiceServer,
-		FullMethod: "/raft.RaftService/AppendEntry",
+		FullMethod: "/raft.RaftService/AppendEntries",
 	}
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return p.RaftServiceServer.AppendEntry(ctx, req.(*AppendEntryRequest))
+		return p.RaftServiceServer.AppendEntries(ctx, req.(*AppendEntriesRequest))
 	}
 
 	resp, err := p.interceptor(ctx, req, info, handler)
@@ -73,7 +73,7 @@ func (p *proxyRaftServiceServer) AppendEntry(ctx context.Context, req *AppendEnt
 		return nil, err
 	}
 
-	return resp.(*AppendEntryResponse), nil
+	return resp.(*AppendEntriesResponse), nil
 }
 
 func (p *proxyRaftServiceServer) RequestVote(ctx context.Context, req *RequestVoteRequest) (*RequestVoteResponse, error) {
@@ -92,4 +92,22 @@ func (p *proxyRaftServiceServer) RequestVote(ctx context.Context, req *RequestVo
 	}
 
 	return resp.(*RequestVoteResponse), nil
+}
+
+func (p *proxyRaftServiceServer) Info(ctx context.Context, req *InfoRequest) (*InfoResponse, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     p.RaftServiceServer,
+		FullMethod: "/raft.RaftService/Info",
+	}
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return p.RaftServiceServer.Info(ctx, req.(*InfoRequest))
+	}
+
+	resp, err := p.interceptor(ctx, req, info, handler)
+	if err != nil || resp == nil {
+		return nil, err
+	}
+
+	return resp.(*InfoResponse), nil
 }
