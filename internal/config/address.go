@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/catalystgo/logger/logger"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
 )
@@ -34,9 +33,9 @@ func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([
 
 		// Validate ServerID
 		if id == raftID {
-			logger.Warnf(ctx, "skip self node at RAFT_CLUSTER[%d](%s)", i, node)
-			continue
+			continue // skip self node
 		}
+
 		if id == 0 {
 			return nil, errors.Errorf("node ServerID must be greater than 0 at RAFT_CLUSTER[%d](%s)", i, node)
 		}

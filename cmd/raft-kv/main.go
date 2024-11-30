@@ -18,7 +18,7 @@ import (
 
 func main() {
 	logger.SetLevel(zapcore.WarnLevel)
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard)) // TODO: remove
 
 	app, err := catalystgo.New()
 	if err != nil {
