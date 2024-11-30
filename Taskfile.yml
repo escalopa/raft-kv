@@ -14,6 +14,10 @@ tasks:
     cmds:
       - go run ./cmd/raft-kv/. --config .catalystgo/config-local.yml
 
+  ui:
+    cmds:
+      - go run ./cmd/ui/main.go
+
   mock:
     cmds:
       - "{{.GOBIN}}/mockgen -source=./internal/mock/mock.go -destination=./internal/mock/mock.go -package=mock"
@@ -90,9 +94,9 @@ tasks:
       - GOBIN={{.GOBIN}} go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
 
 # docker
-  docker-local:
+  docker-dev-build:
     cmds:
-     - docker build --file ./.catalystgo/Dockerfile --tag escalopa/raft-kv:local --target dev --no-cache .
+     - docker build --file ./.catalystgo/Dockerfile --tag escalopa/raft-kv:dev --target dev --no-cache .
 
   docker-build:
     cmds:
@@ -106,6 +110,16 @@ tasks:
     cmds:
       - task: docker-build
       - task: docker-push
+
+# docker-compose
+
+  docker-dev-up:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose-dev.yml up
+
+  docker-dev-down:
+    cmds:
+      - docker compose --file .catalystgo/docker-compose-dev.yml down
 
   docker-up:
     cmds:

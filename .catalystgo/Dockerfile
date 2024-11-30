@@ -13,6 +13,5 @@ RUN go build -o /go/bin/raft-kv ./cmd/main.go
 
 FROM alpine:3.19 AS production
 COPY --from=builder /go/bin/raft-kv /go/bin/raft-kv
-COPY /go/bin/raft-kv /go/bin/raft-kv
-COPY .cataystgo/ /go/bin/.catalystgo/
-ENTRYPOINT ["/go/bin/raft-kv", "--config", ".catalystgo/config-local.yml"]
+COPY .catalystgo/ /go/bin/.catalystgo/
+ENTRYPOINT ["/go/bin/raft-kv", "--config", ".catalystgo/config-prod.yml"]

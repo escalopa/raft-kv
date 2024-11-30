@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raft KV Store UI</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        th {
+            background-color: #f8f9fa;
+            text-align: center;
+            font-weight: bold;
+        }
+        tr {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .action-buttons {
+            margin-top: 10px;
+        }
+        .btn {
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-body">
+            <div class="form-group row">
+                <label for="serverCount" class="col-sm-4 col-form-label font-weight-bold">Number of Servers:</label>
+                <div class="col-sm-4">
+                    <input type="number" id="serverCount" class="form-control" value="1">
+                </div>
+                <div class="col-sm-4">
+                    <button class="btn btn-primary" onclick="setServerCount()">Apply</button>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="infoInterval" class="col-sm-4 col-form-label font-weight-bold">Info Interval (ms):</label>
+                <div class="col-sm-4">
+                    <input type="number" id="infoInterval" class="form-control" value="1000">
+                </div>
+                <div class="col-sm-4">
+                    <button class="btn btn-primary" onclick="setInfoInterval()">Apply</button>
+                </div>
+            </div>
+            <div id="serversContainer" class="mt-4"></div>
+        </div>
+    </div>
+</div>
+<script>
+    let host = 'localhost';
+    let serverPorts = [7001];
+
+    function setServerCount() {
+        const serverCount = parseInt(document.getElementById('serverCount').value);
+        serverPorts = Array.from({ length: serverCount }, (_, i) => 7000 + (i + 1));
+        resetUI();
+        renderServerControls();
+    }
+
+    function setInfoInterval() {
+        const interval = document.getElementById('infoInterval').value;
+        serverPorts.forEach(port => {
+            setInterval(() => fetchInfo(port), interval);
+        });
+    }
+
+    function resetUI() {
+        document.getElementById('serversContainer').innerHTML = '';
+    }
+
+    function renderServerControls() {
+        const serversContainer = document.getElementById('serversContainer');
+        const table = document.createElement('table');
+        table.className = 'table table-bordered';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+                <tr>
+                    <th>Raft ID</th>
+                    <th>Info</th>
+                    <th>Get</th>
+                    <th>Set</th>
+                    <th>Delete</th>
+                </tr>
+            `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        serverPorts.forEach(port => {
+            const raftID = port - 7000;
+            const buttonRow = document.createElement('tr');
+            buttonRow.innerHTML = `
+                    <td rowspan="3">${raftID}</td>
+                    <td rowspan="3">
+                        <textarea id="infoOutput${port}" class="form-control mt-2" rows="12"></textarea>
+                    </td>
+                    <td class="action-buttons">
+                        <button class="btn btn-primary mb-2" onclick="getKey(${port})">Get</button>
+                    </td>
+                    <td class="action-buttons">
+                        <button class="btn btn-success mb-2" onclick="setKeyValue(${port})">Set</button>
+                    </td>
+                    <td class="action-buttons">
+                        <button class="btn btn-danger" onclick="deleteKey(${port})">Delete</button>
+                    </td>
+                `;
+            tbody.appendChild(buttonRow);
+
+            const inputRow = document.createElement('tr');
+            inputRow.innerHTML = `
+
+
+                    <td>
+                        <input type="text" id="getKey${port}" class="form-control mb-2" placeholder="Key">
+                    </td>
+                    <td>
+                        <input type="text" id="setKey${port}" class="form-control mb-2" placeholder="Key">
+                        <input type="text" id="setValue${port}" class="form-control mb-2" placeholder="Value">
+                    </td>
+                    <td>
+                        <input type="text" id="delKey${port}" class="form-control mt-2" placeholder="Key">
+                    </td>
+                `;
+            tbody.appendChild(inputRow);
+
+            const outputRow = document.createElement('tr');
+            outputRow.innerHTML = `
+
+                    <td>
+                        <textarea id="getOutput${port}" class="form-control mt-2" rows="2"></textarea>
+                    </td>
+                    <td>
+                        <textarea id="setOutput${port}" class="form-control mt-2" rows="2"></textarea>
+                    </td>
+                    <td>
+                        <textarea id="delOutput${port}" class="form-control mt-2" rows="2"></textarea>
+                    </td>
+                `;
+            tbody.appendChild(outputRow);
+        });
+
+        table.appendChild(tbody);
+        serversContainer.appendChild(table);
+    }
+
+    function fetchInfo(port) {
+        fetch(`http://${host}:${port}/raft/info`).then(response => response.json())
+            .then(data => updateOutput(`infoOutput${port}`, data, true))
+            .catch(error => updateOutput(`infoOutput${port}`, error, false));
+    }
+
+    function getKey(port) {
+        const key = document.getElementById(`getKey${port}`).value;
+        fetch(`http://${host}:${port}/kv/${key}`)
+            .then(response => response.json())
+            .then(data => updateOutput(`getOutput${port}`, data, true))
+            .catch(error => updateOutput(`getOutput${port}`, error, false));
+    }
+
+    function setKeyValue(port) {
+        const key = document.getElementById(`setKey${port}`).value;
+        const value = document.getElementById(`setValue${port}`).value;
+        fetch(`http://${host}:${port}/kv`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ key: key, value: value })
+        }).then(response => response.json())
+            .then(data => updateOutput(`setOutput${port}`, data, true))
+            .catch(error => updateOutput(`setOutput${port}`, error, false));
+    }
+
+    function deleteKey(port) {
+        const key = document.getElementById(`delKey${port}`).value;
+        fetch(`http://${host}:${port}/kv`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ key: key })
+        }).then(response => response.json())
+            .then(data => updateOutput(`delOutput${port}`, data, true))
+            .catch(error => updateOutput(`delOutput${port}`, error, false));
+    }
+
+    function updateOutput(elementId, data, success) {
+        const outputElement = document.getElementById(elementId);
+        outputElement.value = JSON.stringify(data, null, 2);
+        if (success) {
+            outputElement.classList.add('border-success');
+            outputElement.classList.remove('border-danger');
+        } else {
+            outputElement.classList.add('border-danger');
+            outputElement.classList.remove('border-success');
+        }
+    }
+
+    renderServerControls();
+</script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
