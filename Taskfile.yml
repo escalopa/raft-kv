@@ -123,7 +123,7 @@ tasks:
 
   docker-up:
     cmds:
-      - docker compose --file .catalystgo/docker-compose.yml up
+      - docker compose --file .catalystgo/docker-compose.yml up -d
   docker-down:
     cmds:
       - docker compose --file .catalystgo/docker-compose.yml down
