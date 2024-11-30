@@ -18,6 +18,7 @@ plugins:
     out: pkg
     opt:
       - paths=source_relative
+      - allow_delete_body=true
       - generate_unbound_methods=true
 
   - local: bin/protoc-gen-go-vtproto

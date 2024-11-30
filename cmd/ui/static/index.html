@@ -159,12 +159,11 @@
 
     function deleteKey(port) {
         const key = document.getElementById(`delKey${port}`).value;
-        fetch(`http://${host}:${port}/kv`, {
+        fetch(`http://${host}:${port}/kv/${key}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ key: key })
         }).then(response => response.json())
             .then(data => updateOutput(`delOutput${port}`, data, true))
             .catch(error => updateOutput(`delOutput${port}`, error, false));
