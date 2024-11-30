@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/escalopa/raft-kv/internal/service/internal"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	initServersOnce = sync.Once{}
+	runOnce = sync.Once{}
 )
 
 type (
@@ -28,9 +29,6 @@ type (
 		GetTerm(ctx context.Context) (term uint64, err error)
 		SetTerm(ctx context.Context, term uint64) (err error)
 
-		GetVoted(ctx context.Context) (votedFor uint64, err error)
-		SetVoted(ctx context.Context, votedFor uint64) (err error)
-
 		GetCommit(ctx context.Context) (commitIndex uint64, err error)
 		SetCommit(ctx context.Context, commitIndex uint64) (err error)
 
@@ -43,11 +41,21 @@ type (
 		Set(ctx context.Context, key, value string) (err error)
 		Del(ctx context.Context, key string) (err error)
 	}
+
+	Config interface {
+		GetElectionDelay() time.Duration
+		GetElectionTimeout() time.Duration
+
+		GetCommitPeriod() time.Duration
+		GetHeartbeatPeriod() time.Duration
+	}
 )
 
 type RaftState struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	config Config
 
 	raftID core.ServerID
 
@@ -74,6 +82,7 @@ type RaftState struct {
 
 func NewRaftState(
 	ctx context.Context,
+	config Config,
 	raftID core.ServerID,
 	cluster []core.Node,
 	entryStore EntryStore,
@@ -88,6 +97,8 @@ func NewRaftState(
 	rf := &RaftState{
 		ctx:    ctx,
 		cancel: cancel,
+
+		config: config,
 
 		raftID: raftID,
 
@@ -119,38 +130,33 @@ func NewRaftState(
 		return nil, err
 	}
 
-	leaderFacade := internal.NewLeaderFacade(raftID, rf.servers, entryStore, rf.state, stateUpdateChan)
+	leaderFacade := internal.NewLeaderFacade(config, raftID, rf.servers, entryStore, rf.state, stateUpdateChan)
 	rf.state.SetLeader(leaderFacade)
-
-	rf.wg.Add(5)
-
-	go rf.processAppendEntries()
-	go rf.processRequestVote()
-	go rf.processReplicate()
-	go rf.processCommit()
-	go rf.processElection()
 
 	return rf, nil
 }
 
+func (rf *RaftState) Run() {
+	runOnce.Do(func() {
+		rf.wg.Add(5)
+
+		go rf.processAppendEntries()
+		go rf.processRequestVote()
+		go rf.processReplicate()
+		go rf.processCommit()
+		go rf.processElection()
+	})
+}
+
 func (rf *RaftState) initServers(cluster []core.Node) error {
-	var (
-		conn *grpc.ClientConn
-		err  error
-	)
-
-	fn := func() {
-		for _, node := range cluster {
-			conn, err = grpc.NewClient(node.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				return
-			}
-			rf.servers[node.ID] = desc.NewRaftServiceClient(conn)
+	for _, node := range cluster {
+		conn, err := grpc.NewClient(node.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return err
 		}
+		rf.servers[node.ID] = desc.NewRaftServiceClient(conn)
 	}
-
-	initServersOnce.Do(fn)
-	return err
+	return nil
 }
 
 func (rf *RaftState) Get(ctx context.Context, key string) (string, error) {

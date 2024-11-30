@@ -27,9 +27,15 @@ type (
 		GetTerm() uint64
 		GetCommitIndex() uint64
 	}
+
+	Config interface {
+		GetHeartbeatPeriod() time.Duration
+	}
 )
 
 type LeaderFacade struct {
+	config Config
+
 	raftID core.ServerID
 
 	servers map[core.ServerID]desc.RaftServiceClient
@@ -51,6 +57,7 @@ type LeaderFacade struct {
 }
 
 func NewLeaderFacade(
+	config Config,
 	raftID core.ServerID,
 	servers map[core.ServerID]desc.RaftServiceClient,
 	entryStore EntryStore,
@@ -58,6 +65,7 @@ func NewLeaderFacade(
 	stateUpdateChan chan<- *core.StateUpdate,
 ) *LeaderFacade {
 	lf := &LeaderFacade{
+		config:          config,
 		raftID:          raftID,
 		servers:         servers,
 		nextIndex:       xsync.NewMapOf[core.ServerID, uint64](),
@@ -106,8 +114,7 @@ func (l *LeaderFacade) heartbeatLoop(ctx context.Context, serverID core.ServerID
 	done := l.done
 
 	for {
-		timeout := time.Duration(core.RandInRange(50, 100)) * time.Millisecond
-		timer.Reset(timeout)
+		timer.Reset(l.config.GetHeartbeatPeriod())
 
 		select {
 		case <-timer.C:

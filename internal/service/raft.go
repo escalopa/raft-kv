@@ -305,8 +305,7 @@ func (rf *RaftState) processCommit() {
 	defer timer.Stop()
 
 	for {
-		timeout := time.Duration(core.RandInRange(50, 100)) * time.Millisecond
-		timer.Reset(timeout)
+		timer.Reset(rf.config.GetCommitPeriod())
 
 		select {
 		case <-timer.C:
@@ -372,12 +371,13 @@ func (rf *RaftState) applyEntry(ctx context.Context, entry *core.Entry) error {
 func (rf *RaftState) processElection() {
 	defer rf.wg.Done()
 
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(rf.config.GetElectionDelay())
 	defer timer.Stop()
 
+	<-timer.C // wait for the delay before starting the election
+
 	for {
-		timeout := time.Duration(core.RandInRange(150, 300)) * time.Millisecond
-		timer.Reset(timeout)
+		timer.Reset(rf.config.GetElectionTimeout())
 
 		select {
 		case <-timer.C:
@@ -457,10 +457,13 @@ func (rf *RaftState) startElection(ctx context.Context) {
 			if res.VoteGranted {
 				select {
 				case responseChan <- struct{}{}:
+					logger.WarnKV(ctx, "vote granted", "raft_id", rf.raftID, "voter", serverID)
 				case <-done: // ignore the rest of the responses
 				}
-				logger.WarnKV(ctx, "vote granted", "raft_id", rf.raftID, "voter", serverID)
+				return nil
 			}
+
+			logger.WarnKV(ctx, "vote not granted", "raft_id", rf.raftID, "voter", serverID)
 
 			return nil
 		})

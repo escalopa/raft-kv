@@ -3,7 +3,7 @@ module github.com/escalopa/raft-kv
 go 1.23.3
 
 require (
-	github.com/catalystgo/catalystgo v1.0.4
+	github.com/catalystgo/catalystgo v1.0.5
 	github.com/catalystgo/logger v0.1.1
 	github.com/dgraph-io/badger/v4 v4.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -27,6 +27,7 @@ require (
 	github.com/flowchartsman/swaggerui v0.0.0-20221017034628-909ed4f3701b // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.12 // indirect
+	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -35,7 +36,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rs/cors v1.11.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
