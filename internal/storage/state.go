@@ -11,7 +11,6 @@ var (
 	termKey    = []byte("term_key")
 	commitKey  = []byte("commit_key")
 	appliedKey = []byte("last_applied_key")
-	votedKey   = []byte("voted_key")
 )
 
 type StateStore struct {
@@ -61,28 +60,6 @@ func (ss *StateStore) GetCommit(ctx context.Context) (index uint64, err error) {
 
 	err = ss.db.View(func(txn *badger.Txn) error {
 		index, err = getUint64(txn, commitKey)
-		return err
-	})
-	return
-}
-
-func (ss *StateStore) SetVoted(ctx context.Context, index uint64) error {
-	if isDeadCtx(ctx) {
-		return ctx.Err()
-	}
-
-	return ss.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(votedKey, core.UintToKey(index))
-	})
-}
-
-func (ss *StateStore) GetVoted(ctx context.Context) (index uint64, err error) {
-	if isDeadCtx(ctx) {
-		return 0, ctx.Err()
-	}
-
-	err = ss.db.View(func(txn *badger.Txn) error {
-		index, err = getUint64(txn, votedKey)
 		return err
 	})
 	return
