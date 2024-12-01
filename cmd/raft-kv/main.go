@@ -73,6 +73,7 @@ func main() {
 	}
 
 	raftState.Run()
+	closer.Add(raftState.Close)
 
 	kvService := kv.NewKVService(raftState)
 	raftService := raft.NewRaftService(raftState)

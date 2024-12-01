@@ -177,30 +177,32 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 	}
 
 	// Get the previous entry to send the correct prevLogIndex and prevLogTerm
-	entry, err := l.entryStore.At(ctx, lowerBound-1)
+	prevEntry, err := l.entryStore.At(ctx, lowerBound-1)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", raftID)
 			return
 		}
+
 		// no previous entry (first entry)
+		if lowerBound == 1 {
+			prevEntry = &core.Entry{}
+		}
 	}
 
-	var (
-		prevLogIndex = entryLast.Index
-		prevLogTerm  = entryLast.Term
-	)
-
-	if entry != nil {
-		prevLogIndex = entry.Index
-		prevLogTerm = entry.Term
+	if prevEntry == nil {
+		logger.ErrorKV(ctx, "load prev log entry on heartbeat send",
+			"raft_id", raftID,
+			"lower_bound", lowerBound,
+		)
+		return
 	}
 
 	res, err := server.AppendEntries(ctx, &desc.AppendEntriesRequest{
 		Term:         term,
 		LeaderId:     uint64(l.raftID),
-		PrevLogIndex: prevLogIndex,
-		PrevLogTerm:  prevLogTerm,
+		PrevLogIndex: prevEntry.Index,
+		PrevLogTerm:  prevEntry.Term,
 		LeaderCommit: l.stateStore.GetCommitIndex(),
 		Entries:      entriesDesc,
 	})
@@ -231,8 +233,8 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 
 	// If prevLogIndex is less than the latest log on the follower, that means the follower has some
 	// inconsistent data that need to be cleaned therefore we decrement the log by -1
-	if res.LastLogIndex >= prevLogIndex {
-		nextIndex = prevLogIndex - 1
+	if res.LastLogIndex >= prevEntry.Index {
+		nextIndex = prevEntry.Index - 1
 	}
 
 	l.nextIndex.Store(raftID, nextIndex)

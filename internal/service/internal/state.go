@@ -170,6 +170,8 @@ func (sf *StateFacade) processStateUpdates() {
 		case update := <-sf.stateUpdateChan:
 			sf.processStateUpdate(update)
 		case <-sf.ctx.Done():
+			// On context canceled stop the leader too
+			sf.leader.Stop(sf.ctx)
 			return
 		}
 	}

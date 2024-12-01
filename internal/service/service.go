@@ -244,7 +244,8 @@ func (rf *RaftState) resetElectionTimer() {
 	}
 }
 
-func (rf *RaftState) Close() {
+func (rf *RaftState) Close() error {
 	rf.cancel()
 	rf.wg.Wait()
+	return nil
 }

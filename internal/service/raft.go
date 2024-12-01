@@ -36,6 +36,10 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 			Term:    term,
 			Success: false,
 		}
+
+		reqTerm         = req.GetTerm()
+		reqPrevLogTerm  = req.GetPrevLogTerm()
+		reqPrevLogIndex = req.GetPrevLogIndex()
 	)
 
 	lastEntry, err := rf.entryStore.Last(ctx)
@@ -51,18 +55,18 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 	response.LastLogIndex = lastEntry.Index
 
 	// Reply false if term < currentTerm
-	if req.Term < term {
+	if reqTerm < term {
 		return response, nil
 	}
 
-	if req.Term > term {
+	if reqTerm > term {
 		rf.sendStateUpdate(core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
-			Term: req.Term,
+			Term: reqTerm,
 		})
 	}
 
-	entry, err := rf.entryStore.At(ctx, req.PrevLogIndex)
+	entry, err := rf.entryStore.At(ctx, reqPrevLogIndex)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			logger.ErrorKV(ctx, "append entries at", "error", err)
@@ -70,7 +74,7 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		}
 
 		// If entry is not found check if it's the initial entry
-		if req.PrevLogIndex == 0 {
+		if reqPrevLogIndex == 0 {
 			entry = &core.Entry{}
 		}
 	}
@@ -81,16 +85,16 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 	}
 
 	// Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
-	if entry.Term != req.PrevLogTerm {
+	if entry.Term != reqPrevLogTerm {
 		return response, nil
 	}
 
-	entries := make([]*core.Entry, len(req.Entries))
-	for i, e := range req.Entries {
+	entries := make([]*core.Entry, len(req.GetEntries()))
+	for i, e := range req.GetEntries() {
 		entries[i] = &core.Entry{
-			Term:  e.Term,
-			Index: e.Index,
-			Data:  e.Data,
+			Term:  e.GetTerm(),
+			Index: e.GetIndex(),
+			Data:  e.GetData(),
 		}
 	}
 
@@ -100,8 +104,8 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		return nil, err
 	}
 
-	if req.LeaderCommit > rf.state.GetCommitIndex() {
-		commitIndex := req.LeaderCommit
+	if req.GetLeaderCommit() > rf.state.GetCommitIndex() {
+		commitIndex := req.GetLeaderCommit()
 
 		// Entries might be empty if the leader is sending a heartbeat only
 		if len(entries) > 0 {
@@ -121,17 +125,8 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		rf.sendStateUpdate(core.StateUpdate{
 			Type:     core.StateUpdateTypeState,
 			State:    core.Follower,
-			LeaderID: req.LeaderId,
+			LeaderID: req.GetLeaderId(),
 		})
-	}
-
-	// If this was a replicate message print progress in the log
-	if len(entries) > 0 {
-		e := entries[len(entries)-1]
-		logger.WarnKV(ctx, "replicated an entry",
-			"last_entry_term", e.Term,
-			"last_entry_index", e.Index,
-		)
 	}
 
 	response.Success = true
@@ -164,16 +159,20 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 			Term:        term,
 			VoteGranted: false,
 		}
+
+		reqTerm         = req.GetTerm()
+		reqLastLogTerm  = req.GetLastLogTerm()
+		reqLastLogIndex = req.GetLastLogIndex()
 	)
 
-	if req.Term < term {
+	if reqTerm < term {
 		return response, nil
 	}
 
-	if req.Term > term {
+	if reqTerm > term {
 		rf.sendStateUpdate(core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
-			Term: req.Term,
+			Term: reqTerm,
 		})
 	}
 
@@ -186,17 +185,17 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		lastEntry = &core.Entry{}
 	}
 
-	if req.LastLogTerm > lastEntry.Term || (req.LastLogTerm == lastEntry.Term && req.LastLogIndex >= lastEntry.Index) {
+	if reqLastLogTerm > lastEntry.Term || (reqLastLogTerm == lastEntry.Term && reqLastLogIndex >= lastEntry.Index) {
 		// If we have already voted for a node, give a vote only if the term is higher
 
 		votedFor := rf.state.GetVotedFor()
 
 		// Give vote only if the term is higher (i.e a new election) or we haven't voted yet
-		if req.Term > term || votedFor == 0 {
+		if reqTerm > term || votedFor == 0 {
 			rf.sendStateUpdate(core.StateUpdate{
 				Type:     core.StateUpdateTypeState,
 				State:    core.Follower,
-				VotedFor: req.CandidateId,
+				VotedFor: req.GetCandidateId(),
 			})
 
 			response.VoteGranted = true
@@ -204,7 +203,7 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 	}
 
 	if response.VoteGranted {
-		logger.WarnKV(ctx, "voted given", "raft_id", req.CandidateId)
+		logger.WarnKV(ctx, "vote given", "candidate_id", req.GetCandidateId(), "term", term, "req_term", reqTerm)
 	}
 
 	return response, nil
@@ -305,6 +304,8 @@ func (rf *RaftState) replicate(ctx context.Context, data []string) error {
 			})
 			continue // skip
 		}
+
+		// TODO: on success request update nextIndex in leader for heartbeat
 
 		if success == rf.quorum {
 			rf.sendStateUpdate(core.StateUpdate{
@@ -481,13 +482,13 @@ func (rf *RaftState) startElection(ctx context.Context) {
 			if res.VoteGranted {
 				select {
 				case responseChan <- struct{}{}:
-					logger.WarnKV(ctx, "vote granted", "voter", raftID)
+					logger.WarnKV(ctx, "vote granted", "voter", raftID, "term", term)
 				case <-done: // ignore the rest of the responses
 				}
 				return nil
 			}
 
-			logger.WarnKV(ctx, "vote not granted", "voter", raftID)
+			logger.WarnKV(ctx, "vote not granted", "voter", raftID, "term", term, "res_term", res.GetTerm())
 
 			return nil
 		})

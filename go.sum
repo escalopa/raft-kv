@@ -1,8 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
-github.com/catalystgo/catalystgo v1.0.5 h1:B9EmqpXvxPusQFz16HxrOQB4fnFXOU3axJWe+VSxlU8=
-github.com/catalystgo/catalystgo v1.0.5/go.mod h1:O28qd078wCUZBGJI5AQnsNzV9gJtl+NI3Ik2Kj+Kep4=
+github.com/catalystgo/catalystgo v1.0.6 h1:U6rQT9vbHI7HpoMGsYbyxhHkviT69roL02JV23QoyVg=
+github.com/catalystgo/catalystgo v1.0.6/go.mod h1:O28qd078wCUZBGJI5AQnsNzV9gJtl+NI3Ik2Kj+Kep4=
 github.com/catalystgo/logger v0.1.1 h1:s8uY4oldNRrGI5LwMEcsBiGbe5TYgvpNhZusxjh9OyM=
 github.com/catalystgo/logger v0.1.1/go.mod h1:bPMHCuB+fhNoPe8saNLcyY0ebAmaWGpbD2khRS49USE=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

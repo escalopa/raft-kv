@@ -3,7 +3,7 @@ module github.com/escalopa/raft-kv
 go 1.23.3
 
 require (
-	github.com/catalystgo/catalystgo v1.0.5
+	github.com/catalystgo/catalystgo v1.0.6
 	github.com/catalystgo/logger v0.1.1
 	github.com/dgraph-io/badger/v4 v4.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
