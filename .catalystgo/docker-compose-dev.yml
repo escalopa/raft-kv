@@ -12,6 +12,10 @@ services:
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
+      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
+      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
+      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
+      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
     volumes:
       - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
@@ -30,6 +34,10 @@ services:
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
+      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
+      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
+      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
+      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
     volumes:
       - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
@@ -48,6 +56,10 @@ services:
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
+      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
+      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
+      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
+      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
     volumes:
       - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
@@ -66,6 +78,10 @@ services:
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
+      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
+      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
+      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
+      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
     volumes:
       - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
@@ -84,6 +100,10 @@ services:
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
+      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
+      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
+      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
+      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
     volumes:
       - ../.:/go/src/github.com/escalopa/raft-kv
     networks:
