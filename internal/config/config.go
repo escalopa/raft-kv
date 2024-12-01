@@ -108,6 +108,11 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 	electionTimeout := parseTimeRange(ctx, raftElectionTimeout, defaultElectionTimeout)
 	heartbeatPeriod := parseTimeRange(ctx, raftHeartbeatPeriod, defaultHeartbeatPeriod)
 
+	logger.Warnf(ctx, "config.CommitPeriod = [min: %d, max: %d]", commitPeriod.Min, commitPeriod.Max)
+	logger.Warnf(ctx, "config.ElectionDelay = [min: %d, max: %d]", electionDelay.Min, electionDelay.Max)
+	logger.Warnf(ctx, "config.ElectionTimeout = [min: %d, max: %d]", electionTimeout.Min, electionTimeout.Max)
+	logger.Warnf(ctx, "config.HeartbeatPeriod = [min: %d, max: %d]", heartbeatPeriod.Min, heartbeatPeriod.Max)
+
 	// Parse BadgerEntryPath
 	entryPath := os.Getenv(badgerEntryPathEnv)
 	if entryPath == "" {

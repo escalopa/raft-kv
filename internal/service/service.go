@@ -240,7 +240,7 @@ func (rf *RaftState) sendStateUpdate(update core.StateUpdate) {
 func (rf *RaftState) resetElectionTimer() {
 	select {
 	case rf.heartbeat <- struct{}{}:
-	default: // drop the heartbeat if it's not currently needed
+	default: // drop the heartbeat if it's not currently needed (i.e. on election)
 	}
 }
 

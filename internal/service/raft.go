@@ -42,6 +42,8 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		reqPrevLogIndex = req.GetPrevLogIndex()
 	)
 
+	defer rf.resetElectionTimer()
+
 	lastEntry, err := rf.entryStore.Last(ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
@@ -118,8 +120,6 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		})
 	}
 
-	rf.resetElectionTimer()
-
 	state := rf.state.GetState()
 	if state == core.Leader || state == core.Candidate {
 		rf.sendStateUpdate(core.StateUpdate{
@@ -144,7 +144,6 @@ func (rf *RaftState) processRequestVote() {
 				req.err <- err
 				continue
 			}
-			rf.resetElectionTimer()
 			req.res <- res
 		case <-rf.ctx.Done():
 			return
@@ -164,6 +163,8 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		reqLastLogTerm  = req.GetLastLogTerm()
 		reqLastLogIndex = req.GetLastLogIndex()
 	)
+
+	defer rf.resetElectionTimer()
 
 	if reqTerm < term {
 		return response, nil
