@@ -6,6 +6,7 @@ require (
 	github.com/catalystgo/catalystgo v1.0.6
 	github.com/catalystgo/logger v0.1.1
 	github.com/dgraph-io/badger/v4 v4.5.0
+	github.com/gogo/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
 	github.com/pkg/errors v0.9.1

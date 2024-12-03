@@ -7,15 +7,23 @@ services:
       - "7001:7000"
       - "8001:8000"
     environment:
+      # general
       - RAFT_ID=1
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
+      - RAFT_COMMIT_PERIOD=30
+      # follower
+      - RAFT_ELECTION_DELAY_PERIOD=3000
+      - RAFT_ELECTION_TIMEOUT_PERIOD=300
+      # leader
+      - RAFT_HEARTBEAT_PERIOD=50
+      - RAFT_LEADER_STALE_PERIOD=200
+      - RAFT_LEADER_CHECK_STEP_DOWN_PERIOD=100
+      # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
-      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
-      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
-      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
-      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
+    volumes:
+      - raft_data_1:/data
     networks:
       - raft-kv
 
@@ -27,15 +35,23 @@ services:
       - "7002:7000"
       - "8002:8000"
     environment:
+      # general
       - RAFT_ID=2
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
+      - RAFT_COMMIT_PERIOD=30
+      # follower
+      - RAFT_ELECTION_DELAY_PERIOD=3000
+      - RAFT_ELECTION_TIMEOUT_PERIOD=300
+      # leader
+      - RAFT_HEARTBEAT_PERIOD=50
+      - RAFT_LEADER_STALE_PERIOD=200
+      - RAFT_LEADER_CHECK_STEP_DOWN_PERIOD=100
+      # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
-      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
-      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
-      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
-      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
+    volumes:
+      - raft_data_2:/data
     networks:
       - raft-kv
 
@@ -47,15 +63,23 @@ services:
       - "7003:7000"
       - "8003:8000"
     environment:
+      # general
       - RAFT_ID=3
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
+      - RAFT_COMMIT_PERIOD=30
+      # follower
+      - RAFT_ELECTION_DELAY_PERIOD=3000
+      - RAFT_ELECTION_TIMEOUT_PERIOD=300
+      # leader
+      - RAFT_HEARTBEAT_PERIOD=50
+      - RAFT_LEADER_STALE_PERIOD=200
+      - RAFT_LEADER_CHECK_STEP_DOWN_PERIOD=100
+      # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
-      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
-      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
-      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
-      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
+    volumes:
+      - raft_data_3:/data
     networks:
       - raft-kv
 
@@ -67,15 +91,23 @@ services:
       - "7004:7000"
       - "8004:8000"
     environment:
+      # general
       - RAFT_ID=4
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
+      - RAFT_COMMIT_PERIOD=30
+      # follower
+      - RAFT_ELECTION_DELAY_PERIOD=3000
+      - RAFT_ELECTION_TIMEOUT_PERIOD=300
+      # leader
+      - RAFT_HEARTBEAT_PERIOD=50
+      - RAFT_LEADER_STALE_PERIOD=200
+      - RAFT_LEADER_CHECK_STEP_DOWN_PERIOD=100
+      # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
-      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
-      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
-      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
-      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
+    volumes:
+      - raft_data_4:/data
     networks:
       - raft-kv
 
@@ -87,15 +119,23 @@ services:
       - "7005:7000"
       - "8005:8000"
     environment:
+      # general
       - RAFT_ID=5
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
+      - RAFT_COMMIT_PERIOD=30
+      # follower
+      - RAFT_ELECTION_DELAY_PERIOD=3000
+      - RAFT_ELECTION_TIMEOUT_PERIOD=300
+      # leader
+      - RAFT_HEARTBEAT_PERIOD=50
+      - RAFT_LEADER_STALE_PERIOD=200
+      - RAFT_LEADER_CHECK_STEP_DOWN_PERIOD=100
+      # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
       - BADGER_KV_PATH=/data/kv
-      - RAFT_COMMIT_PERIOD={"min":"30","max":"50"}
-      - RAFT_HEARTBEAT_PERIOD={"min":"30","max":"50"}
-      - RAFT_ELECTION_DELAY={"min":"1500","max":"3000"}
-      - RAFT_ELECTION_TIMEOUT={"min":"150","max":"300"}
+    volumes:
+      - raft_data_5:/data
     networks:
       - raft-kv
 
@@ -124,3 +164,8 @@ networks:
 
 volumes:
   portainer_data:
+  raft_data_1:
+  raft_data_2:
+  raft_data_3:
+  raft_data_4:
+  raft_data_5:

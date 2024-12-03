@@ -11,13 +11,22 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (rf *RaftState) processAppendEntries() {
+func (rf *RaftState) processRaftRPC() {
 	defer rf.wg.Done()
 
 	for {
 		select {
 		case req := <-rf.appendEntriesChan:
+			rf.resetElectionTimer()
 			res, err := rf.appendEntries(req.ctx, req.req)
+			if err != nil {
+				req.err <- err
+				continue
+			}
+			req.res <- res
+		case req := <-rf.requestVoteChan:
+			rf.resetElectionTimer()
+			res, err := rf.requestVote(req.ctx, req.req)
 			if err != nil {
 				req.err <- err
 				continue
@@ -42,16 +51,10 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		reqPrevLogIndex = req.GetPrevLogIndex()
 	)
 
-	defer rf.resetElectionTimer()
-
-	lastEntry, err := rf.entryStore.Last(ctx)
+	lastEntry, err := rf.getLastEntry(ctx)
 	if err != nil {
-		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "append entries last", "error", err)
-			return nil, err
-		}
-		// no entry yet in log
-		lastEntry = &core.Entry{}
+		logger.ErrorKV(ctx, "append entries last", "error", err)
+		return nil, err
 	}
 
 	response.LastLogIndex = lastEntry.Index
@@ -133,24 +136,6 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 	return response, nil
 }
 
-func (rf *RaftState) processRequestVote() {
-	defer rf.wg.Done()
-
-	for {
-		select {
-		case req := <-rf.requestVoteChan:
-			res, err := rf.requestVote(req.ctx, req.req)
-			if err != nil {
-				req.err <- err
-				continue
-			}
-			req.res <- res
-		case <-rf.ctx.Done():
-			return
-		}
-	}
-}
-
 func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
 	var (
 		term     = rf.state.GetTerm()
@@ -164,7 +149,7 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		reqLastLogIndex = req.GetLastLogIndex()
 	)
 
-	defer rf.resetElectionTimer()
+	rf.resetElectionTimer()
 
 	if reqTerm < term {
 		return response, nil
@@ -177,18 +162,13 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		})
 	}
 
-	lastEntry, err := rf.entryStore.Last(ctx)
+	lastEntry, err := rf.getLastEntry(ctx)
 	if err != nil {
-		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "request vote last", "error", err)
-			return nil, err
-		}
-		lastEntry = &core.Entry{}
+		logger.ErrorKV(ctx, "request vote last", "error", err)
+		return nil, err
 	}
 
 	if reqLastLogTerm > lastEntry.Term || (reqLastLogTerm == lastEntry.Term && reqLastLogIndex >= lastEntry.Index) {
-		// If we have already voted for a node, give a vote only if the term is higher
-
 		votedFor := rf.state.GetVotedFor()
 
 		// Give vote only if the term is higher (i.e a new election) or we haven't voted yet
@@ -204,7 +184,25 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 	}
 
 	if response.VoteGranted {
-		logger.WarnKV(ctx, "vote given", "candidate_id", req.GetCandidateId(), "term", term, "req_term", reqTerm)
+		logger.WarnKV(ctx, "vote given",
+			"candidate_id", req.GetCandidateId(),
+			"term", term,
+			"req_term", reqTerm,
+			"req_last_entry_index", reqLastLogIndex,
+			"req_last_entry_term", reqLastLogTerm,
+			"last_entry_index", lastEntry.Index,
+			"last_entry_term", lastEntry.Term,
+		)
+	} else {
+		logger.WarnKV(ctx, "vote denied",
+			"candidate_id", req.GetCandidateId(),
+			"term", term,
+			"req_term", reqTerm,
+			"req_last_entry_index", reqLastLogIndex,
+			"req_last_entry_term", reqLastLogTerm,
+			"last_entry_index", lastEntry.Index,
+			"last_entry_term", lastEntry.Term,
+		)
 	}
 
 	return response, nil
@@ -227,13 +225,10 @@ func (rf *RaftState) processReplicate() {
 func (rf *RaftState) replicate(ctx context.Context, data []string) error {
 	term := rf.state.GetTerm()
 
-	lastEntry, err := rf.entryStore.Last(ctx)
+	lastEntry, err := rf.getLastEntry(ctx)
 	if err != nil {
-		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "replicate last entry", "error", err)
-			return err
-		}
-		lastEntry = &core.Entry{}
+		logger.ErrorKV(ctx, "replicate last entry", "error", err)
+		return err
 	}
 
 	entry := &core.Entry{
@@ -295,26 +290,27 @@ func (rf *RaftState) replicate(ctx context.Context, data []string) error {
 	for resp := range responseChan {
 		if resp.Success {
 			success++
+
+			// TODO: on success request update nextIndex in leader for heartbeat
+			// 	currently this leads to double replication of the entry
+
+			if success == rf.quorum {
+				rf.sendStateUpdate(core.StateUpdate{
+					Type:        core.StateUpdateTypeCommitIndex,
+					CommitIndex: entry.Index,
+				})
+				close(done)
+				logger.WarnKV(ctx, "replication done", "entry_index", entry.Index)
+				break
+			}
 		}
 
 		// If the term is higher than the current term, update the term and continue collecting votes
-		if resp.Term > term {
+		if resp.GetTerm() > term {
 			rf.sendStateUpdate(core.StateUpdate{
 				Type: core.StateUpdateTypeTerm,
-				Term: resp.Term,
+				Term: resp.GetTerm(),
 			})
-			continue // skip
-		}
-
-		// TODO: on success request update nextIndex in leader for heartbeat
-
-		if success == rf.quorum {
-			rf.sendStateUpdate(core.StateUpdate{
-				Type:        core.StateUpdateTypeCommitIndex,
-				CommitIndex: entry.Index,
-			})
-			close(done)
-			break
 		}
 	}
 
@@ -398,13 +394,13 @@ func (rf *RaftState) applyEntry(ctx context.Context, entry *core.Entry) error {
 func (rf *RaftState) processElection() {
 	defer rf.wg.Done()
 
-	timer := time.NewTimer(rf.config.GetElectionDelay())
+	timer := time.NewTimer(rf.config.GetElectionDelayPeriod())
 	defer timer.Stop()
 
 	<-timer.C // wait for the delay before starting the election
 
 	for {
-		timer.Reset(rf.config.GetElectionTimeout())
+		timer.Reset(rf.config.GetElectionTimeoutPeriod())
 
 		select {
 		case <-timer.C:
@@ -430,15 +426,10 @@ func (rf *RaftState) startElection(ctx context.Context) {
 		State: core.Candidate,
 	})
 
-	entry, err := rf.entryStore.Last(ctx)
+	lastEntry, err := rf.getLastEntry(ctx)
 	if err != nil {
-		// If the error is not found, then we can ignore it
-		// because it means that there are no entries in the log yet (i.e. first run)
-		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "election last entry", "error", err)
-			return
-		}
-		entry = &core.Entry{}
+		logger.ErrorKV(ctx, "election last entry", "error", err)
+		return
 	}
 
 	var (
@@ -454,17 +445,20 @@ func (rf *RaftState) startElection(ctx context.Context) {
 
 	logger.WarnKV(ctx, "election info",
 		"term", term,
-		"last_log_index", entry.Index,
-		"last_log_term", entry.Term,
+		"last_log_index", lastEntry.Index,
+		"last_log_term", lastEntry.Term,
 	)
 
 	for raftID, server := range rf.servers {
 		errG.Go(func() error {
-			res, err := server.RequestVote(ctx, &desc.RequestVoteRequest{
+			sendCtx, cancel := context.WithTimeout(ctx, 1*time.Second) // TODO: make this configurable
+			defer cancel()
+
+			res, err := server.RequestVote(sendCtx, &desc.RequestVoteRequest{
 				Term:         term,
 				CandidateId:  uint64(rf.raftID),
-				LastLogIndex: entry.Index,
-				LastLogTerm:  entry.Term,
+				LastLogIndex: lastEntry.Index,
+				LastLogTerm:  lastEntry.Term,
 			})
 
 			if err != nil {
@@ -472,24 +466,35 @@ func (rf *RaftState) startElection(ctx context.Context) {
 				return nil
 			}
 
-			if res.Term > term {
+			if res.GetTerm() > term {
 				rf.sendStateUpdate(core.StateUpdate{
 					Type: core.StateUpdateTypeTerm,
-					Term: res.Term,
+					Term: res.GetTerm(),
 				})
-				return nil
 			}
+
+			// log request result
+			defer func() {
+				result := "vote not granted"
+				if res.VoteGranted {
+					result = "vote granted"
+				}
+
+				logger.WarnKV(ctx, result,
+					"voter", raftID,
+					"term", term,
+					"res_term", res.GetTerm(),
+					"last_entry_index", lastEntry.Index,
+					"last_entry_term", lastEntry.Term,
+				)
+			}()
 
 			if res.VoteGranted {
 				select {
 				case responseChan <- struct{}{}:
-					logger.WarnKV(ctx, "vote granted", "voter", raftID, "term", term)
 				case <-done: // ignore the rest of the responses
 				}
-				return nil
 			}
-
-			logger.WarnKV(ctx, "vote not granted", "voter", raftID, "term", term, "res_term", res.GetTerm())
 
 			return nil
 		})
@@ -504,16 +509,35 @@ func (rf *RaftState) startElection(ctx context.Context) {
 	for range responseChan {
 		votes++
 
-		if votes == rf.quorum {
-			logger.WarnKV(ctx, "election won")
+		// If candidate state has changed, this means a new leader has sent an AppendEntries or
+		// another candidate has as collected our vote
+		if rf.state.GetState() != core.Candidate {
+			logger.WarnKV(ctx, "stop election => candidate state has changed since start")
+			close(done)
+			break
+		}
 
+		if votes == rf.quorum {
 			rf.sendStateUpdate(core.StateUpdate{
 				Type:  core.StateUpdateTypeState,
 				State: core.Leader,
 			})
 
+			logger.WarnKV(ctx, "election won")
+
 			close(done)
 			break
 		}
 	}
+}
+
+func (rf *RaftState) getLastEntry(ctx context.Context) (*core.Entry, error) {
+	lastEntry, err := rf.entryStore.Last(ctx)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			return nil, err
+		}
+		lastEntry = &core.Entry{} // no entries yet (i.e. initial state)
+	}
+	return lastEntry, nil
 }

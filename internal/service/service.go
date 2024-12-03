@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/catalystgo/logger/logger"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/escalopa/raft-kv/internal/service/internal"
 	desc "github.com/escalopa/raft-kv/pkg/raft"
@@ -43,11 +44,20 @@ type (
 	}
 
 	Config interface {
-		GetElectionDelay() time.Duration
-		GetElectionTimeout() time.Duration
+		// general
 
 		GetCommitPeriod() time.Duration
+
+		// follower
+
+		GetElectionDelayPeriod() time.Duration
+		GetElectionTimeoutPeriod() time.Duration
+
+		// leader
+
 		GetHeartbeatPeriod() time.Duration
+		GetLeaderStalePeriod() time.Duration
+		GetLeaderCheckStepDownPeriod() time.Duration
 	}
 )
 
@@ -138,13 +148,11 @@ func NewRaftState(
 
 func (rf *RaftState) Run() {
 	runOnce.Do(func() {
-		rf.wg.Add(5)
-
-		go rf.processAppendEntries()
-		go rf.processRequestVote()
-		go rf.processReplicate()
-		go rf.processCommit()
-		go rf.processElection()
+		rf.goFunc(rf.processRaftRPC)
+		rf.goFunc(rf.processReplicate)
+		rf.goFunc(rf.processCommit)
+		rf.goFunc(rf.processElection)
+		logger.ErrorKV(rf.ctx, "raft state started")
 	})
 }
 
@@ -218,7 +226,7 @@ func (rf *RaftState) Info(ctx context.Context, _ *desc.InfoRequest) (*desc.InfoR
 		if !errors.Is(err, core.ErrNotFound) {
 			return nil, err
 		}
-		entry = &core.Entry{}
+		entry = &core.Entry{} // no entries yet
 	}
 
 	return &desc.InfoResponse{
@@ -231,10 +239,26 @@ func (rf *RaftState) Info(ctx context.Context, _ *desc.InfoRequest) (*desc.InfoR
 	}, nil
 }
 
+func (rf *RaftState) goFunc(f func()) {
+	rf.wg.Add(1)
+	go func() {
+		defer rf.wg.Done()
+		f()
+	}()
+}
+
 func (rf *RaftState) sendStateUpdate(update core.StateUpdate) {
 	update.Done = make(chan struct{})
-	rf.stateUpdateChan <- &update
-	<-update.Done // wait for the update to be processed
+
+	select {
+	case rf.stateUpdateChan <- &update:
+	case <-rf.ctx.Done():
+	}
+
+	select {
+	case <-update.Done: // wait for the update to be processed
+	case <-rf.ctx.Done():
+	}
 }
 
 func (rf *RaftState) resetElectionTimer() {

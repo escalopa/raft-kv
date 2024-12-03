@@ -31,10 +31,15 @@ type (
 
 	Config interface {
 		GetHeartbeatPeriod() time.Duration
+		GetLeaderStalePeriod() time.Duration
+		GetLeaderCheckStepDownPeriod() time.Duration
 	}
 )
 
 type LeaderFacade struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	config Config
 
 	raftID core.ServerID
@@ -49,8 +54,10 @@ type LeaderFacade struct {
 	// initialized to 0, increases monotonically
 	matchIndex *xsync.MapOf[core.ServerID, uint64]
 
-	// errorScheduler map of serverID and error message timestamp
-	errorScheduler *xsync.MapOf[core.ServerID, map[string]time.Time]
+	// lastHeartbeat map of serverID and last heartbeat timestamp sent
+	// used to detect if we are able to contact the majority of the servers in the cluster
+	// if we can't contact the majority of the servers, we should step down
+	lastHeartbeat *xsync.MapOf[core.ServerID, time.Time]
 
 	entryStore EntryStore
 	stateStore SimpleStateStore
@@ -75,23 +82,18 @@ func NewLeaderFacade(
 		servers:         servers,
 		nextIndex:       xsync.NewMapOf[core.ServerID, uint64](),
 		matchIndex:      xsync.NewMapOf[core.ServerID, uint64](),
-		errorScheduler:  xsync.NewMapOf[core.ServerID, map[string]time.Time](),
+		lastHeartbeat:   xsync.NewMapOf[core.ServerID, time.Time](),
 		entryStore:      entryStore,
 		stateStore:      stateStore,
 		stateUpdateChan: stateUpdateChan,
 		done:            make(chan struct{}),
 	}
-
-	for internalRaftID := range servers {
-		lf.errorScheduler.Store(internalRaftID, make(map[string]time.Time))
-	}
-
 	close(lf.done) // initially closed
 	return lf
 }
 
 func (l *LeaderFacade) Start(ctx context.Context) error {
-	l.Stop(ctx) // stop any previous running goroutines
+	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.done = make(chan struct{})
 
 	entryLast, err := l.entryStore.Last(ctx)
@@ -107,48 +109,28 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 		l.matchIndex.Store(raftID, 0)
 	}
 
-	l.wg.Add(len(l.servers))
-	for id, server := range l.servers {
-		go l.heartbeatLoop(ctx, id, server)
-	}
+	l.run()
 
 	logger.WarnKV(ctx, "leader started")
 
 	return nil
 }
 
-func (l *LeaderFacade) heartbeatLoop(ctx context.Context, raftID core.ServerID, server desc.RaftServiceClient) {
-	defer l.wg.Done()
-
-	timer := time.NewTimer(0)
-	defer timer.Stop()
-
-	// capture the done channel (protects from running 2 sendHeartbeat
-	// when the leader is stopped and started quickly)
-	done := l.done
-
-	logger.WarnKV(ctx, "start heartbeat loop", "raft_id", raftID)
-
-	for {
-		timer.Reset(l.config.GetHeartbeatPeriod())
-
-		select {
-		case <-timer.C:
-			l.sendHeartbeat(ctx, raftID, server)
-		case <-done:
-			logger.WarnKV(ctx, "stop heartbeat loop", "raft_id", raftID)
-			return
-		}
+func (l *LeaderFacade) run() {
+	for raftID := range l.servers {
+		l.goRepeat(func() { l.sendHeartbeat(raftID) }, l.done, l.config.GetHeartbeatPeriod)
 	}
+	l.goRepeat(l.checkStepDown, l.done, l.config.GetLeaderCheckStepDownPeriod)
+
 }
 
-func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, server desc.RaftServiceClient) {
+func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 	term := l.stateStore.GetTerm()
 
-	entryLast, err := l.entryStore.Last(ctx)
+	entryLast, err := l.entryStore.Last(l.ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "heartbeat last entry", "error", err)
+			logger.ErrorKV(l.ctx, "heartbeat last entry", "error", err)
 		}
 
 		// no entries to send (first run) but
@@ -161,9 +143,9 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 		upperBound    = min(entryLast.Index, lowerBound+maxEntriesPerRequest-1) // inclusive
 	)
 
-	entries, err := l.entryStore.Range(ctx, lowerBound, upperBound)
+	entries, err := l.entryStore.Range(l.ctx, lowerBound, upperBound)
 	if err != nil {
-		logger.ErrorKV(ctx, "heartbeat range", "error", err, "raft_id", raftID)
+		logger.ErrorKV(l.ctx, "heartbeat range", "error", err, "raft_id", raftID)
 		return
 	}
 
@@ -177,10 +159,10 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 	}
 
 	// Get the previous entry to send the correct prevLogIndex and prevLogTerm
-	prevEntry, err := l.entryStore.At(ctx, lowerBound-1)
+	prevEntry, err := l.entryStore.At(l.ctx, lowerBound-1)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", raftID)
+			logger.ErrorKV(l.ctx, "heartbeat at", "error", err, "raft_id", raftID)
 			return
 		}
 
@@ -191,14 +173,19 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 	}
 
 	if prevEntry == nil {
-		logger.ErrorKV(ctx, "load prev log entry on heartbeat send",
+		logger.ErrorKV(l.ctx, "load prev log entry on heartbeat send",
 			"raft_id", raftID,
 			"lower_bound", lowerBound,
 		)
 		return
 	}
 
-	res, err := server.AppendEntries(ctx, &desc.AppendEntriesRequest{
+	server := l.servers[raftID]
+
+	sendCtx, cancel := context.WithTimeout(l.ctx, 1*time.Second) // TODO: make this configurable
+	defer cancel()
+
+	res, err := server.AppendEntries(sendCtx, &desc.AppendEntriesRequest{
 		Term:         term,
 		LeaderId:     uint64(l.raftID),
 		PrevLogIndex: prevEntry.Index,
@@ -207,18 +194,20 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 		Entries:      entriesDesc,
 	})
 	if err != nil {
-		if l.logEnabled(raftID, err) {
-			logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", raftID)
-		}
+		// TODO: add backoff and retry
+		logger.ErrorKV(l.ctx, "heartbeat append entries", "error", err, "raft_id", raftID)
 		return
 	}
+
+	// If we got a response from the follower, we can update the last heartbeat
+	// even if the request was not successful (i.e. the follower is not up to date)
+	defer l.lastHeartbeat.Store(raftID, time.Now())
 
 	if term < res.Term {
 		l.sendStateUpdate(core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
 			Term: res.Term,
 		})
-		return
 	}
 
 	// If the follower is up to date, then we can update the nextIndex and matchIndex
@@ -240,10 +229,66 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID, 
 	l.nextIndex.Store(raftID, nextIndex)
 }
 
+// checkStepDown checks if the leader can contact the majority of the servers in the cluster
+// if it can't contact the majority of the servers, it should step down
+func (l *LeaderFacade) checkStepDown() {
+	contacted := 1 // leader is counted as contacted
+	for raftID := range l.servers {
+		lastHeartbeat, ok := l.lastHeartbeat.Load(raftID)
+		if !ok {
+			continue
+		}
+
+		if time.Since(lastHeartbeat) < l.config.GetLeaderStalePeriod() {
+			contacted++
+		}
+	}
+
+	canContactMajority := contacted > (len(l.servers)+1)/2
+	if !canContactMajority {
+		logger.WarnKV(l.ctx, "leader stepping down => cannot contact majority of the nodes in cluster", "contacted", contacted)
+		l.sendStateUpdate(core.StateUpdate{
+			Type:  core.StateUpdateTypeState,
+			State: core.Follower,
+		})
+		logger.WarnKV(l.ctx, "leader stepped down")
+	}
+}
+
 func (l *LeaderFacade) sendStateUpdate(update core.StateUpdate) {
 	update.Done = make(chan struct{})
-	l.stateUpdateChan <- &update
-	<-update.Done // wait for the update to be processed
+
+	select {
+	case l.stateUpdateChan <- &update:
+	case <-l.ctx.Done(): // leader stopped
+	}
+
+	select {
+	case <-update.Done: // wait for the update to be processed
+	case <-l.ctx.Done(): // leader stopped
+	}
+}
+
+// repeat runs the given function f every freq until done is closed
+func (l *LeaderFacade) goRepeat(f func(), done <-chan struct{}, freq func() time.Duration) {
+	l.wg.Add(1)
+	go func() {
+		defer l.wg.Done()
+
+		timer := time.NewTimer(0)
+		defer timer.Stop()
+
+		for {
+			timer.Reset(freq())
+
+			select {
+			case <-done:
+				return
+			case <-timer.C:
+				f()
+			}
+		}
+	}()
 }
 
 // Stop stops the leader state machine and all its goroutines
@@ -252,32 +297,9 @@ func (l *LeaderFacade) Stop(ctx context.Context) {
 	select {
 	case <-l.done: // already closed
 	default:
+		l.cancel()
 		close(l.done)
 		logger.WarnKV(ctx, "leader stopped")
 	}
 	l.wg.Wait()
-}
-
-// logEnabled returns true if the server is allowed to log the error
-// only one error type per second is allowed to be logged for each server
-func (l *LeaderFacade) logEnabled(serverID core.ServerID, err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if _, ok := l.servers[serverID]; !ok {
-		return false
-	}
-
-	lastError, ok := l.errorScheduler.Load(serverID)
-	if !ok {
-		return true
-	}
-
-	if time.Since(lastError[err.Error()]) > time.Second {
-		lastError[err.Error()] = time.Now()
-		return true
-	}
-
-	return false
 }

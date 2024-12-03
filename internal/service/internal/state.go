@@ -190,14 +190,17 @@ func (sf *StateFacade) processStateUpdate(update *core.StateUpdate) {
 
 	// persistent attributes
 
+	// Notice: for some attributes we need to prevent going backwards, this can happen due to multiple reads and data
+	// changes in the same time i.e. term can be changed in appendEntries, requestVote and state update at the same time
+
 	case core.StateUpdateTypeTerm:
 		sf.term.Lock()
-		sf.term.value = update.Term
+		sf.term.value = max(sf.term.value, update.Term) // prevent going backwards
 		err = sf.stateState.SetTerm(sf.ctx, update.Term)
 		sf.term.Unlock()
 	case core.StateUpdateTypeCommitIndex:
 		sf.commitIndex.Lock()
-		sf.commitIndex.value = update.CommitIndex
+		sf.commitIndex.value = max(sf.commitIndex.value, update.CommitIndex) // prevent going backwards
 		err = sf.stateState.SetCommit(sf.ctx, update.CommitIndex)
 		sf.commitIndex.Unlock()
 	case core.StateUpdateTypeLastApplied:
@@ -226,14 +229,13 @@ func (sf *StateFacade) processStateUpdate(update *core.StateUpdate) {
 			sf.leader.Stop(sf.ctx)
 		}
 
-		logger.InfoKV(sf.ctx, "state update", "old_state", oldState, "new_state", sf.state)
+		logger.WarnKV(sf.ctx, "state update", "old_state", oldState, "new_state", sf.state)
 
 	// volatile attributes
 
 	case core.StateUpdateTypeVotedFor:
 		sf.votedFor.Lock()
 		sf.votedFor.value = update.VotedFor
-
 		sf.votedFor.Unlock()
 	case core.StateUpdateTypeLeaderID:
 		sf.leaderID.Lock()

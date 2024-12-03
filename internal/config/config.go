@@ -2,14 +2,12 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/catalystgo/logger/logger"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
 )
@@ -18,37 +16,41 @@ const (
 	raftIDEnv      = "RAFT_ID"
 	raftClusterEnv = "RAFT_CLUSTER"
 
-	raftCommitPeriod    = "RAFT_COMMIT_PERIOD"
-	raftHeartbeatPeriod = "RAFT_HEARTBEAT_PERIOD"
+	// general
+	raftCommitPeriod = "RAFT_COMMIT_PERIOD"
 
-	raftElectionDelay   = "RAFT_ELECTION_DELAY"
-	raftElectionTimeout = "RAFT_ELECTION_TIMEOUT"
+	// follower
+	raftElectionDelayPeriod   = "RAFT_ELECTION_DELAY_PERIOD"
+	raftElectionTimeoutPeriod = "RAFT_ELECTION_TIMEOUT_PERIOD"
 
+	// leader
+	raftHeartbeatPeriod           = "RAFT_HEARTBEAT_PERIOD"
+	raftLeaderStalePeriod         = "RAFT_LEADER_STALE_PERIOD"
+	raftLeaderCheckStepDownPeriod = "RAFT_LEADER_CHECK_STEP_DOWN_PERIOD"
+
+	// db
 	badgerEntryPathEnv = "BADGER_ENTRY_PATH"
 	badgerStatePathEnv = "BADGER_STATE_PATH"
 	badgerKVPathEnv    = "BADGER_KV_PATH"
 )
 
-var (
-	defaultElectionDelay   = TimeRange{Min: 500, Max: 1000}
-	defaultElectionTimeout = TimeRange{Min: 150, Max: 300}
-	defaultHeartbeatPeriod = TimeRange{Min: 50, Max: 100}
-)
-
 type (
-	TimeRange struct {
-		Min int `json:"min"`
-		Max int `json:"max"`
+	LeaderConfig struct {
+		StalePeriod         int64
+		HeartbeatPeriod     int64
+		CheckStepDownPeriod int64
 	}
 
 	RaftConfig struct {
 		ID      core.ServerID
 		Cluster []core.Node
 
-		CommitPeriod    TimeRange
-		ElectionDelay   TimeRange
-		ElectionTimeout TimeRange
-		HeartbeatPeriod TimeRange
+		CommitPeriod int64
+
+		ElectionDelay   int64
+		ElectionTimeout int64
+
+		Leader LeaderConfig
 	}
 
 	BadgerConfig struct {
@@ -64,19 +66,27 @@ type (
 )
 
 func (ac *AppConfig) GetCommitPeriod() time.Duration {
-	return time.Duration(randInRange(ac.Raft.CommitPeriod.Min, ac.Raft.CommitPeriod.Max)) * time.Millisecond
+	return time.Duration(randIn2X(ac.Raft.CommitPeriod)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetElectionDelay() time.Duration {
-	return time.Duration(randInRange(ac.Raft.ElectionDelay.Min, ac.Raft.ElectionDelay.Max)) * time.Millisecond
+func (ac *AppConfig) GetElectionDelayPeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.ElectionDelay)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetElectionTimeout() time.Duration {
-	return time.Duration(randInRange(ac.Raft.ElectionTimeout.Min, ac.Raft.ElectionTimeout.Max)) * time.Millisecond
+func (ac *AppConfig) GetElectionTimeoutPeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.ElectionTimeout)) * time.Millisecond
 }
 
 func (ac *AppConfig) GetHeartbeatPeriod() time.Duration {
-	return time.Duration(randInRange(ac.Raft.HeartbeatPeriod.Min, ac.Raft.HeartbeatPeriod.Max)) * time.Millisecond
+	return time.Duration(randIn2X(ac.Raft.Leader.HeartbeatPeriod)) * time.Millisecond
+}
+
+func (ac *AppConfig) GetLeaderStalePeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.Leader.StalePeriod)) * time.Millisecond
+}
+
+func (ac *AppConfig) GetLeaderCheckStepDownPeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.Leader.CheckStepDownPeriod)) * time.Millisecond
 }
 
 func NewAppConfig(ctx context.Context) (*AppConfig, error) {
@@ -102,16 +112,36 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, errors.Errorf("parse cluster config: %v", err)
 	}
 
-	// Parse CommitPeriod, ElectionDelay, ElectionTimeout, HeartbeatPeriod
-	commitPeriod := parseTimeRange(ctx, raftCommitPeriod, TimeRange{Min: 50, Max: 100})
-	electionDelay := parseTimeRange(ctx, raftElectionDelay, defaultElectionDelay)
-	electionTimeout := parseTimeRange(ctx, raftElectionTimeout, defaultElectionTimeout)
-	heartbeatPeriod := parseTimeRange(ctx, raftHeartbeatPeriod, defaultHeartbeatPeriod)
+	// Parse Time Periods
+	commitPeriod, err := parseTimePeriod(raftCommitPeriod)
+	if err != nil {
+		return nil, err
+	}
 
-	logger.Warnf(ctx, "config.CommitPeriod = [min: %d, max: %d]", commitPeriod.Min, commitPeriod.Max)
-	logger.Warnf(ctx, "config.ElectionDelay = [min: %d, max: %d]", electionDelay.Min, electionDelay.Max)
-	logger.Warnf(ctx, "config.ElectionTimeout = [min: %d, max: %d]", electionTimeout.Min, electionTimeout.Max)
-	logger.Warnf(ctx, "config.HeartbeatPeriod = [min: %d, max: %d]", heartbeatPeriod.Min, heartbeatPeriod.Max)
+	electionDelay, err := parseTimePeriod(raftElectionDelayPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	electionTimeout, err := parseTimePeriod(raftElectionTimeoutPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	heartbeatPeriod, err := parseTimePeriod(raftHeartbeatPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	leaderStalePeriod, err := parseTimePeriod(raftLeaderStalePeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	checkStepDownPeriod, err := parseTimePeriod(raftLeaderCheckStepDownPeriod)
+	if err != nil {
+		return nil, err
+	}
 
 	// Parse BadgerEntryPath
 	entryPath := os.Getenv(badgerEntryPathEnv)
@@ -136,10 +166,16 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 			ID:      core.ServerID(raftID),
 			Cluster: nodes,
 
-			CommitPeriod:    commitPeriod,
+			CommitPeriod: commitPeriod,
+
 			ElectionDelay:   electionDelay,
 			ElectionTimeout: electionTimeout,
-			HeartbeatPeriod: heartbeatPeriod,
+
+			Leader: LeaderConfig{
+				StalePeriod:         leaderStalePeriod,
+				HeartbeatPeriod:     heartbeatPeriod,
+				CheckStepDownPeriod: checkStepDownPeriod,
+			},
 		},
 		Badger: BadgerConfig{
 			EntryPath: entryPath,
@@ -151,22 +187,15 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 	return appCfg, nil
 }
 
-func parseTimeRange(ctx context.Context, envKey string, defaultValue TimeRange) TimeRange {
-	envValue := os.Getenv(envKey)
-	if envValue == "" {
-		return defaultValue
-	}
-
-	var tr TimeRange
-	err := json.Unmarshal([]byte(envValue), &tr)
+func parseTimePeriod(env string) (int64, error) {
+	timeMS, err := strconv.ParseInt(os.Getenv(env), 10, 64)
 	if err != nil {
-		logger.ErrorKV(ctx, "parse time range", "error", err, "env_key", envKey, "env_value", envValue)
-		return defaultValue
+		return 0, errors.Errorf("parse %s: %v", env, err)
 	}
-
-	return tr
+	return timeMS, nil
 }
 
-func randInRange(min, max int) int {
-	return min + rand.IntN(max-min)
+// randIn2X returns a random number in the range [min, 2*min)
+func randIn2X(min int64) int64 {
+	return min + rand.Int64N(min)
 }
