@@ -107,6 +107,7 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 	for raftID := range l.servers {
 		l.nextIndex.Store(raftID, entryLast.Index+1)
 		l.matchIndex.Store(raftID, 0)
+		l.lastHeartbeat.Store(raftID, time.Now())
 	}
 
 	l.run()
