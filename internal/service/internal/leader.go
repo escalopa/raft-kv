@@ -37,7 +37,6 @@ type (
 )
 
 type LeaderFacade struct {
-	ctx    context.Context
 	cancel context.CancelFunc
 
 	config Config
@@ -64,8 +63,7 @@ type LeaderFacade struct {
 
 	stateUpdateChan chan<- *core.StateUpdate
 
-	done chan struct{}
-	wg   sync.WaitGroup
+	wg sync.WaitGroup
 }
 
 func NewLeaderFacade(
@@ -76,7 +74,8 @@ func NewLeaderFacade(
 	stateStore SimpleStateStore,
 	stateUpdateChan chan<- *core.StateUpdate,
 ) *LeaderFacade {
-	lf := &LeaderFacade{
+	return &LeaderFacade{
+		cancel:          func() { /* noop */ }, // avoid nil panic
 		config:          config,
 		raftID:          raftID,
 		servers:         servers,
@@ -86,15 +85,11 @@ func NewLeaderFacade(
 		entryStore:      entryStore,
 		stateStore:      stateStore,
 		stateUpdateChan: stateUpdateChan,
-		done:            make(chan struct{}),
 	}
-	close(lf.done) // initially closed
-	return lf
 }
 
 func (l *LeaderFacade) Start(ctx context.Context) error {
-	l.ctx, l.cancel = context.WithCancel(ctx)
-	l.done = make(chan struct{})
+	ctx, l.cancel = context.WithCancel(ctx)
 
 	entryLast, err := l.entryStore.Last(ctx)
 	if err != nil {
@@ -110,28 +105,27 @@ func (l *LeaderFacade) Start(ctx context.Context) error {
 		l.lastHeartbeat.Store(raftID, time.Now())
 	}
 
-	l.run()
+	l.run(ctx)
 
 	logger.WarnKV(ctx, "leader started")
 
 	return nil
 }
 
-func (l *LeaderFacade) run() {
+func (l *LeaderFacade) run(ctx context.Context) {
 	for raftID := range l.servers {
-		l.goRepeat(func() { l.sendHeartbeat(raftID) }, l.done, l.config.GetHeartbeatPeriod)
+		l.goRepeat(ctx, func() { l.sendHeartbeat(ctx, raftID) }, l.config.GetHeartbeatPeriod)
 	}
-	l.goRepeat(l.checkStepDown, l.done, l.config.GetLeaderCheckStepDownPeriod)
-
+	l.goRepeat(ctx, func() { l.checkStepDown(ctx) }, l.config.GetLeaderCheckStepDownPeriod)
 }
 
-func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
+func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID) {
 	term := l.stateStore.GetTerm()
 
-	entryLast, err := l.entryStore.Last(l.ctx)
+	entryLast, err := l.entryStore.Last(ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(l.ctx, "heartbeat last entry", "error", err)
+			logger.ErrorKV(ctx, "heartbeat last entry", "error", err)
 		}
 
 		// no entries to send (first run) but
@@ -144,9 +138,9 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 		upperBound    = min(entryLast.Index, lowerBound+maxEntriesPerRequest-1) // inclusive
 	)
 
-	entries, err := l.entryStore.Range(l.ctx, lowerBound, upperBound)
+	entries, err := l.entryStore.Range(ctx, lowerBound, upperBound)
 	if err != nil {
-		logger.ErrorKV(l.ctx, "heartbeat range", "error", err, "raft_id", raftID)
+		logger.ErrorKV(ctx, "heartbeat range", "error", err, "raft_id", raftID)
 		return
 	}
 
@@ -160,10 +154,10 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 	}
 
 	// Get the previous entry to send the correct prevLogIndex and prevLogTerm
-	prevEntry, err := l.entryStore.At(l.ctx, lowerBound-1)
+	prevEntry, err := l.entryStore.At(ctx, lowerBound-1)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
-			logger.ErrorKV(l.ctx, "heartbeat at", "error", err, "raft_id", raftID)
+			logger.ErrorKV(ctx, "heartbeat at", "error", err, "raft_id", raftID)
 			return
 		}
 
@@ -174,7 +168,7 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 	}
 
 	if prevEntry == nil {
-		logger.ErrorKV(l.ctx, "load prev log entry on heartbeat send",
+		logger.ErrorKV(ctx, "load prev log entry on heartbeat send",
 			"raft_id", raftID,
 			"lower_bound", lowerBound,
 		)
@@ -183,7 +177,7 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 
 	server := l.servers[raftID]
 
-	sendCtx, cancel := context.WithTimeout(l.ctx, 1*time.Second) // TODO: make this configurable
+	sendCtx, cancel := context.WithTimeout(ctx, 1*time.Second) // TODO: make this configurable
 	defer cancel()
 
 	res, err := server.AppendEntries(sendCtx, &desc.AppendEntriesRequest{
@@ -196,7 +190,7 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 	})
 	if err != nil {
 		// TODO: add backoff and retry
-		logger.ErrorKV(l.ctx, "heartbeat append entries", "error", err, "raft_id", raftID)
+		logger.ErrorKV(ctx, "heartbeat append entries", "error", err, "raft_id", raftID)
 		return
 	}
 
@@ -205,7 +199,7 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 	defer l.lastHeartbeat.Store(raftID, time.Now())
 
 	if term < res.Term {
-		l.sendStateUpdate(core.StateUpdate{
+		l.sendStateUpdate(ctx, core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
 			Term: res.Term,
 		})
@@ -232,7 +226,7 @@ func (l *LeaderFacade) sendHeartbeat(raftID core.ServerID) {
 
 // checkStepDown checks if the leader can contact the majority of the servers in the cluster
 // if it can't contact the majority of the servers, it should step down
-func (l *LeaderFacade) checkStepDown() {
+func (l *LeaderFacade) checkStepDown(ctx context.Context) {
 	contacted := 1 // leader is counted as contacted
 	for raftID := range l.servers {
 		lastHeartbeat, ok := l.lastHeartbeat.Load(raftID)
@@ -247,31 +241,33 @@ func (l *LeaderFacade) checkStepDown() {
 
 	canContactMajority := contacted > (len(l.servers)+1)/2
 	if !canContactMajority {
-		logger.WarnKV(l.ctx, "leader stepping down => cannot contact majority of the nodes in cluster", "contacted", contacted)
-		l.sendStateUpdate(core.StateUpdate{
+		logger.WarnKV(ctx, "leader stepping down => cannot contact majority of the nodes in cluster", "contacted", contacted)
+		l.sendStateUpdate(ctx, core.StateUpdate{
 			Type:  core.StateUpdateTypeState,
 			State: core.Follower,
 		})
-		logger.WarnKV(l.ctx, "leader stepped down")
+		logger.WarnKV(ctx, "leader stepped down")
 	}
 }
 
-func (l *LeaderFacade) sendStateUpdate(update core.StateUpdate) {
+func (l *LeaderFacade) sendStateUpdate(ctx context.Context, update core.StateUpdate) {
 	update.Done = make(chan struct{})
 
 	select {
 	case l.stateUpdateChan <- &update:
-	case <-l.ctx.Done(): // leader stopped
+	case <-ctx.Done(): // leader stopped
+		return
 	}
 
 	select {
 	case <-update.Done: // wait for the update to be processed
-	case <-l.ctx.Done(): // leader stopped
+	case <-ctx.Done(): // leader stopped
+		return
 	}
 }
 
 // repeat runs the given function f every freq until done is closed
-func (l *LeaderFacade) goRepeat(f func(), done <-chan struct{}, freq func() time.Duration) {
+func (l *LeaderFacade) goRepeat(ctx context.Context, f func(), freq func() time.Duration) {
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
@@ -283,7 +279,7 @@ func (l *LeaderFacade) goRepeat(f func(), done <-chan struct{}, freq func() time
 			timer.Reset(freq())
 
 			select {
-			case <-done:
+			case <-ctx.Done():
 				return
 			case <-timer.C:
 				f()
@@ -294,13 +290,7 @@ func (l *LeaderFacade) goRepeat(f func(), done <-chan struct{}, freq func() time
 
 // Stop stops the leader state machine and all its goroutines
 // It is safe to call this method multiple times
-func (l *LeaderFacade) Stop(ctx context.Context) {
-	select {
-	case <-l.done: // already closed
-	default:
-		l.cancel()
-		close(l.done)
-		logger.WarnKV(ctx, "leader stopped")
-	}
+func (l *LeaderFacade) Stop(_ context.Context) {
+	l.cancel()
 	l.wg.Wait()
 }

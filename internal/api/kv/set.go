@@ -8,6 +8,10 @@ import (
 )
 
 func (i *Implementation) Set(ctx context.Context, req *desc.SetRequest) (*desc.SetResponse, error) {
+	if req.GetKey() == "" {
+		return nil, core.ToGrpcError(core.ErrEmptyKey)
+	}
+
 	err := i.srv.Set(ctx, req.GetKey(), req.GetValue())
 	if err != nil {
 		return nil, core.ToGrpcError(err)

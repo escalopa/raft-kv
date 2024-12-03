@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	ErrEmptyKey                   = fmt.Errorf("empty key")
 	ErrNotFound                   = fmt.Errorf("not found")
 	ErrNotLeader                  = fmt.Errorf("not leader")
 	ErrUnknownEntryType           = fmt.Errorf("unknown entry type")
@@ -26,6 +27,8 @@ func ToGrpcError(err error) error {
 		return status.Error(codes.Canceled, err.Error())
 	case errors.Is(err, context.DeadlineExceeded):
 		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, ErrEmptyKey):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, ErrNotLeader):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, ErrNotFound):

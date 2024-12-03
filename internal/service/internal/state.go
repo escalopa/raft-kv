@@ -128,6 +128,8 @@ func (sf *StateFacade) GetLeaderID() uint64 {
 }
 
 func (sf *StateFacade) GetState() core.State {
+	sf.stateLock.RLock()
+	defer sf.stateLock.RUnlock()
 	return sf.state
 }
 
@@ -170,8 +172,8 @@ func (sf *StateFacade) processStateUpdates() {
 		case update := <-sf.stateUpdateChan:
 			sf.processStateUpdate(update)
 		case <-sf.ctx.Done():
-			// On context canceled stop the leader too
-			sf.leader.Stop(sf.ctx)
+			logger.WarnKV(sf.ctx, "state update processing stopped")
+			sf.leader.Stop(sf.ctx) // On context canceled stop the leader too
 			return
 		}
 	}
@@ -185,6 +187,16 @@ func (sf *StateFacade) processStateUpdate(update *core.StateUpdate) {
 	}
 
 	defer close(update.Done)
+
+	logger.WarnKV(sf.ctx, "process state update",
+		"type", update.Type,
+		"term", update.Term,
+		"state", update.State,
+		"votedFor", update.VotedFor,
+		"commitIndex", update.CommitIndex,
+		"lastApplied", update.LastApplied,
+		"leaderID", update.LeaderID,
+	)
 
 	switch update.Type {
 
@@ -227,9 +239,12 @@ func (sf *StateFacade) processStateUpdate(update *core.StateUpdate) {
 			sf.votedFor.value = update.VotedFor
 			sf.leaderID.value = update.LeaderID
 			sf.leader.Stop(sf.ctx)
+			if oldState == core.Leader {
+				logger.WarnKV(sf.ctx, "leader stopped")
+			}
 		}
 
-		logger.WarnKV(sf.ctx, "state update", "old_state", oldState, "new_state", sf.state)
+		logger.WarnKV(sf.ctx, "node state update", "old_state", oldState, "new_state", sf.state)
 
 	// volatile attributes
 

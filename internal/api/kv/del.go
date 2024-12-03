@@ -8,6 +8,10 @@ import (
 )
 
 func (i *Implementation) Del(ctx context.Context, req *desc.DelRequest) (*desc.DelResponse, error) {
+	if req.GetKey() == "" {
+		return nil, core.ToGrpcError(core.ErrEmptyKey)
+	}
+
 	err := i.srv.Del(ctx, req.GetKey())
 	if err != nil {
 		return nil, core.ToGrpcError(err)
