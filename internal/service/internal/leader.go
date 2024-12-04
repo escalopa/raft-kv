@@ -177,7 +177,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID) 
 
 	server := l.servers[raftID]
 
-	sendCtx, cancel := context.WithTimeout(ctx, 1*time.Second) // TODO: make this configurable
+	sendCtx, cancel := context.WithTimeout(ctx, 200*time.Second) // TODO: make this configurable
 	defer cancel()
 
 	res, err := server.AppendEntries(sendCtx, &desc.AppendEntriesRequest{

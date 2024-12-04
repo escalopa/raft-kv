@@ -451,7 +451,7 @@ func (rf *RaftState) startElection(ctx context.Context) {
 
 	for raftID, server := range rf.servers {
 		errG.Go(func() error {
-			sendCtx, cancel := context.WithTimeout(ctx, 1*time.Second) // TODO: make this configurable
+			sendCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond) // TODO: make this configurable
 			defer cancel()
 
 			res, err := server.RequestVote(sendCtx, &desc.RequestVoteRequest{
