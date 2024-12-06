@@ -23,6 +23,9 @@ type (
 
 		GetLastApplied(ctx context.Context) (lastApplied uint64, err error)
 		SetLastApplied(ctx context.Context, lastApplied uint64) (err error)
+
+		GetVotedFor(ctx context.Context) (votedFor uint64, err error)
+		SetVotedFor(ctx context.Context, votedFor uint64) (err error)
 	}
 
 	Leader interface {
@@ -145,6 +148,13 @@ func (sf *StateFacade) loadState(ctx context.Context) error {
 		}
 	}
 
+	votedFor, err := sf.stateState.GetVotedFor(ctx)
+	if err != nil {
+		if !errors.Is(err, core.ErrNotFound) {
+			return err
+		}
+	}
+
 	commitIndex, err := sf.stateState.GetCommit(ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
@@ -160,6 +170,7 @@ func (sf *StateFacade) loadState(ctx context.Context) error {
 	}
 
 	sf.term.value = term
+	sf.votedFor.value = votedFor
 	sf.commitIndex.value = commitIndex
 	sf.lastApplied.value = lastApplied
 
@@ -230,11 +241,14 @@ func (sf *StateFacade) processStateUpdate(update *core.StateUpdate) {
 		switch sf.state {
 		case core.Leader:
 			err = sf.leader.Start(sf.ctx)
+
 		case core.Candidate:
 			sf.term.value++
 			sf.votedFor.value = sf.raftID
 			sf.leaderID.value = sf.raftID
 			err = sf.stateState.SetTerm(sf.ctx, sf.term.value)
+			err = sf.stateState.SetVotedFor(sf.ctx, sf.votedFor.value)
+
 		case core.Follower:
 			sf.votedFor.value = update.VotedFor
 			sf.leaderID.value = update.LeaderID

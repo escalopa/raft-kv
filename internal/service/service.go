@@ -35,6 +35,9 @@ type (
 
 		GetLastApplied(ctx context.Context) (lastApplied uint64, err error)
 		SetLastApplied(ctx context.Context, lastApplied uint64) (err error)
+
+		GetVotedFor(ctx context.Context) (votedFor uint64, err error)
+		SetVotedFor(ctx context.Context, votedFor uint64) (err error)
 	}
 
 	KVStore interface {
@@ -221,20 +224,20 @@ func (rf *RaftState) RequestVote(ctx context.Context, req *desc.RequestVoteReque
 }
 
 func (rf *RaftState) Info(ctx context.Context, _ *desc.InfoRequest) (*desc.InfoResponse, error) {
-	entry, err := rf.entryStore.Last(ctx)
+	lastEntry, err := rf.entryStore.Last(ctx)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			return nil, err
 		}
-		entry = &core.Entry{} // no entries yet
+		lastEntry = &core.Entry{} // no entries yet
 	}
 
 	return &desc.InfoResponse{
 		Term:         rf.state.GetTerm(),
 		CommitIndex:  rf.state.GetCommitIndex(),
 		LastApplied:  rf.state.GetLastApplied(),
-		LastLogIndex: entry.Index,
-		LastLogTerm:  entry.Term,
+		LastLogIndex: lastEntry.Index,
+		LastLogTerm:  lastEntry.Term,
 		State:        rf.state.GetState().String(),
 	}, nil
 }
@@ -261,7 +264,7 @@ func (rf *RaftState) sendStateUpdate(update core.StateUpdate) {
 	}
 }
 
-func (rf *RaftState) resetElectionTimer() {
+func (rf *RaftState) resetElectionTimeout() {
 	select {
 	case rf.heartbeat <- struct{}{}:
 	default: // drop the heartbeat if it's not currently needed (i.e. on election)

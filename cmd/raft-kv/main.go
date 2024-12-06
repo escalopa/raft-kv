@@ -12,12 +12,11 @@ import (
 	"github.com/escalopa/raft-kv/internal/config"
 	"github.com/escalopa/raft-kv/internal/service"
 	"github.com/escalopa/raft-kv/internal/storage"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/grpclog"
 )
 
 func main() {
-	logger.SetLevel(zapcore.WarnLevel)
+	logger.SetLevel(config.LogLevel())
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard)) // TODO: remove
 
 	app, err := catalystgo.New()

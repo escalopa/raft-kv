@@ -10,9 +10,12 @@ import (
 
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
+	logLevelEnv = "LOG_LEVEL"
+
 	raftIDEnv      = "RAFT_ID"
 	raftClusterEnv = "RAFT_CLUSTER"
 
@@ -198,4 +201,12 @@ func parseTimePeriod(env string) (int64, error) {
 // randIn2X returns a random number in the range [min, 2*min)
 func randIn2X(min int64) int64 {
 	return min + rand.Int64N(min)
+}
+
+func LogLevel() zapcore.Level {
+	lvl, err := zapcore.ParseLevel(os.Getenv(logLevelEnv))
+	if err == nil {
+		return lvl
+	}
+	return zapcore.WarnLevel // default
 }

@@ -17,7 +17,7 @@ func (rf *RaftState) processRaftRPC() {
 	for {
 		select {
 		case req := <-rf.appendEntriesChan:
-			rf.resetElectionTimer()
+			rf.resetElectionTimeout()
 			res, err := rf.appendEntries(req.ctx, req.req)
 			if err != nil {
 				req.err <- err
@@ -25,7 +25,7 @@ func (rf *RaftState) processRaftRPC() {
 			}
 			req.res <- res
 		case req := <-rf.requestVoteChan:
-			rf.resetElectionTimer()
+			rf.resetElectionTimeout()
 			res, err := rf.requestVote(req.ctx, req.req)
 			if err != nil {
 				req.err <- err
@@ -61,6 +61,7 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 
 	// Reply false if term < currentTerm
 	if reqTerm < term {
+		logger.InfoKV(ctx, "append entries term < current term", "term", term, "req_term", reqTerm, "raft_id", req.GetLeaderId())
 		return response, nil
 	}
 
@@ -86,11 +87,19 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 
 	// Reply false if log doesn’t contain an entry at prevLogIndex
 	if entry == nil {
+		logger.InfoKV(ctx, "append entries entry not found", "index", reqPrevLogIndex, "raft_id", req.GetLeaderId())
 		return response, nil
 	}
 
 	// Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
 	if entry.Term != reqPrevLogTerm {
+		logger.InfoKV(ctx, "append entries term mismatch",
+			"index", reqPrevLogIndex,
+			"raft_id", req.GetLeaderId(),
+			"entry_term", entry.Term,
+			"req_term", reqPrevLogTerm,
+		)
+
 		return response, nil
 	}
 
@@ -125,6 +134,8 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 
 	state := rf.state.GetState()
 	if state == core.Leader || state == core.Candidate {
+		logger.WarnKV(ctx, "append entries step down to follower", "raft_id", req.GetLeaderId(), "state", state)
+
 		rf.sendStateUpdate(core.StateUpdate{
 			Type:     core.StateUpdateTypeState,
 			State:    core.Follower,
@@ -149,9 +160,13 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		reqLastLogIndex = req.GetLastLogIndex()
 	)
 
-	rf.resetElectionTimer()
-
 	if reqTerm < term {
+		logger.InfoKV(ctx, "request vote term < current term",
+			"term", term,
+			"req_term", reqTerm,
+			"raft_id", req.GetCandidateId(),
+		)
+
 		return response, nil
 	}
 
@@ -185,7 +200,7 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 
 	if response.VoteGranted {
 		logger.WarnKV(ctx, "vote given",
-			"candidate_id", req.GetCandidateId(),
+			"raft_id", req.GetCandidateId(),
 			"term", term,
 			"req_term", reqTerm,
 			"req_last_entry_index", reqLastLogIndex,
@@ -194,8 +209,8 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 			"last_entry_term", lastEntry.Term,
 		)
 	} else {
-		logger.WarnKV(ctx, "vote denied",
-			"candidate_id", req.GetCandidateId(),
+		logger.WarnKV(ctx, "vote not given",
+			"raft_id", req.GetCandidateId(),
 			"term", term,
 			"req_term", reqTerm,
 			"req_last_entry_index", reqLastLogIndex,
@@ -399,6 +414,8 @@ func (rf *RaftState) processElection() {
 
 	<-timer.C // wait for the delay before starting the election
 
+	logger.WarnKV(rf.ctx, "election timeout loop on")
+
 	for {
 		timer.Reset(rf.config.GetElectionTimeoutPeriod())
 
@@ -511,19 +528,20 @@ func (rf *RaftState) startElection(ctx context.Context) {
 
 		// If candidate state has changed, this means a new leader has sent an AppendEntries or
 		// another candidate has as collected our vote
-		if rf.state.GetState() != core.Candidate {
-			logger.WarnKV(ctx, "stop election => candidate state has changed since start")
+		state := rf.state.GetState()
+		if state != core.Candidate {
+			logger.WarnKV(ctx, "stop election due to state change", "state", state)
 			close(done)
 			break
 		}
 
 		if votes == rf.quorum {
+			logger.WarnKV(ctx, "election won")
+
 			rf.sendStateUpdate(core.StateUpdate{
 				Type:  core.StateUpdateTypeState,
 				State: core.Leader,
 			})
-
-			logger.WarnKV(ctx, "election won")
 
 			close(done)
 			break

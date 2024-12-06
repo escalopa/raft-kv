@@ -199,6 +199,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID) 
 	defer l.lastHeartbeat.Store(raftID, time.Now())
 
 	if term < res.Term {
+		logger.InfoKV(ctx, "leader update term", "old_term", term, "res_term", res.Term, "raft_id", raftID)
 		l.sendStateUpdate(ctx, core.StateUpdate{
 			Type: core.StateUpdateTypeTerm,
 			Term: res.Term,
@@ -241,7 +242,7 @@ func (l *LeaderFacade) checkStepDown(ctx context.Context) {
 
 	canContactMajority := contacted > (len(l.servers)+1)/2
 	if !canContactMajority {
-		logger.WarnKV(ctx, "leader stepping down => cannot contact majority of the nodes in cluster", "contacted", contacted)
+		logger.WarnKV(ctx, "leader stepping down because cannot contact majority of the nodes in cluster", "contacted", contacted)
 		l.sendStateUpdate(ctx, core.StateUpdate{
 			Type:  core.StateUpdateTypeState,
 			State: core.Follower,
