@@ -127,6 +127,10 @@ tasks:
     cmds:
       - docker compose --file .catalystgo/docker-compose.yml down
 
+  docker-down-vol:
+    cmds:
+      - docker volume rm catalystgo_raft_data_1 catalystgo_raft_data_2 catalystgo_raft_data_3 catalystgo_raft_data_4 catalystgo_raft_data_5
+
 # internal
 
   go_files:

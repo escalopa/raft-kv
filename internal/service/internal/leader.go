@@ -30,6 +30,7 @@ type (
 	}
 
 	Config interface {
+		GetAppendEntriesTimeout() time.Duration
 		GetHeartbeatPeriod() time.Duration
 		GetLeaderStalePeriod() time.Duration
 		GetLeaderCheckStepDownPeriod() time.Duration
@@ -177,7 +178,7 @@ func (l *LeaderFacade) sendHeartbeat(ctx context.Context, raftID core.ServerID) 
 
 	server := l.servers[raftID]
 
-	sendCtx, cancel := context.WithTimeout(ctx, 200*time.Second) // TODO: make this configurable
+	sendCtx, cancel := context.WithTimeout(ctx, l.config.GetAppendEntriesTimeout())
 	defer cancel()
 
 	res, err := server.AppendEntries(sendCtx, &desc.AppendEntriesRequest{

@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"github.com/catalystgo/logger/logger"
 	"math/rand/v2"
 	"os"
 	"strconv"
@@ -13,28 +14,43 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	logLevelEnv = "LOG_LEVEL"
+type envCfg struct {
+	env string // env key
+	def string // default value
+}
+
+func (e *envCfg) value() string {
+	value := os.Getenv(e.env)
+	if value == "" {
+		return e.def
+	}
+	return value
+}
+
+var (
+	logLevelEnv = "LOG_LEVEL" // log level env key (default: "WARN")
 
 	raftIDEnv      = "RAFT_ID"
 	raftClusterEnv = "RAFT_CLUSTER"
 
 	// general
-	raftCommitPeriod = "RAFT_COMMIT_PERIOD"
+	raftCommitPeriod           = envCfg{env: "RAFT_COMMIT_PERIOD", def: "50"}
+	appendEntriesTimeoutPeriod = envCfg{env: "RAFT_APPEND_ENTRIES_TIMEOUT", def: "150"}
+	requestVoteTimeoutPeriod   = envCfg{env: "RAFT_REQUEST_VOTE_TIMEOUT", def: "150"}
 
 	// follower
-	raftElectionDelayPeriod   = "RAFT_ELECTION_DELAY_PERIOD"
-	raftElectionTimeoutPeriod = "RAFT_ELECTION_TIMEOUT_PERIOD"
+	raftElectionDelayPeriod   = envCfg{env: "RAFT_ELECTION_DELAY_PERIOD", def: "3000"}
+	raftElectionTimeoutPeriod = envCfg{env: "RAFT_ELECTION_TIMEOUT_PERIOD", def: "300"}
 
 	// leader
-	raftHeartbeatPeriod           = "RAFT_HEARTBEAT_PERIOD"
-	raftLeaderStalePeriod         = "RAFT_LEADER_STALE_PERIOD"
-	raftLeaderCheckStepDownPeriod = "RAFT_LEADER_CHECK_STEP_DOWN_PERIOD"
+	raftHeartbeatPeriod        = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
+	raftLeaderStalePeriod      = envCfg{env: "RAFT_LEADER_STALE_PERIOD", def: "200"}
+	raftLeaderStaleCheckPeriod = envCfg{env: "RAFT_LEADER_STALE_CHECK_PERIOD", def: "100"}
 
 	// db
-	badgerEntryPathEnv = "BADGER_ENTRY_PATH"
-	badgerStatePathEnv = "BADGER_STATE_PATH"
-	badgerKVPathEnv    = "BADGER_KV_PATH"
+	badgerEntryPath = envCfg{env: "BADGER_ENTRY_PATH", def: "/data/entry"}
+	badgerStatePath = envCfg{env: "BADGER_STATE_PATH", def: "/data/state"}
+	badgerKVPath    = envCfg{env: "BADGER_KV_PATH", def: "/data/kv"}
 )
 
 type (
@@ -52,6 +68,9 @@ type (
 
 		ElectionDelay   int64
 		ElectionTimeout int64
+
+		AppendEntriesTimeout int64
+		RequestVoteTimeout   int64
 
 		Leader LeaderConfig
 	}
@@ -72,11 +91,19 @@ func (ac *AppConfig) GetCommitPeriod() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.CommitPeriod)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetElectionDelayPeriod() time.Duration {
+func (ac *AppConfig) GetAppendEntriesTimeout() time.Duration {
+	return time.Duration(ac.Raft.AppendEntriesTimeout) * time.Millisecond
+}
+
+func (ac *AppConfig) GetRequestVoteTimeout() time.Duration {
+	return time.Duration(ac.Raft.RequestVoteTimeout) * time.Millisecond
+}
+
+func (ac *AppConfig) GetElectionDelay() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.ElectionDelay)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetElectionTimeoutPeriod() time.Duration {
+func (ac *AppConfig) GetElectionTimeout() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.ElectionTimeout)) * time.Millisecond
 }
 
@@ -121,6 +148,16 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, err
 	}
 
+	appendEntriesTimeout, err := parseTimePeriod(appendEntriesTimeoutPeriod)
+	if err != nil {
+		return nil, err
+	}
+
+	requestVoteTimeout, err := parseTimePeriod(requestVoteTimeoutPeriod)
+	if err != nil {
+		return nil, err
+	}
+
 	electionDelay, err := parseTimePeriod(raftElectionDelayPeriod)
 	if err != nil {
 		return nil, err
@@ -141,35 +178,24 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, err
 	}
 
-	checkStepDownPeriod, err := parseTimePeriod(raftLeaderCheckStepDownPeriod)
+	checkStepDownPeriod, err := parseTimePeriod(raftLeaderStaleCheckPeriod)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse BadgerEntryPath
-	entryPath := os.Getenv(badgerEntryPathEnv)
-	if entryPath == "" {
-		return nil, errors.Errorf("missing %s", badgerEntryPathEnv)
-	}
-
-	// Parse BadgerStatePath
-	statePath := os.Getenv(badgerStatePathEnv)
-	if statePath == "" {
-		return nil, errors.Errorf("missing %s", badgerStatePathEnv)
-	}
-
-	// Parse BadgerKVPath
-	kvPath := os.Getenv(badgerKVPathEnv)
-	if kvPath == "" {
-		return nil, errors.Errorf("missing %s", badgerKVPathEnv)
-	}
+	// Parse Badger DB paths
+	entryPath := badgerEntryPath.value()
+	statePath := badgerStatePath.value()
+	kvPath := badgerKVPath.value()
 
 	appCfg := &AppConfig{
 		Raft: RaftConfig{
 			ID:      core.ServerID(raftID),
 			Cluster: nodes,
 
-			CommitPeriod: commitPeriod,
+			CommitPeriod:         commitPeriod,
+			AppendEntriesTimeout: appendEntriesTimeout,
+			RequestVoteTimeout:   requestVoteTimeout,
 
 			ElectionDelay:   electionDelay,
 			ElectionTimeout: electionTimeout,
@@ -187,13 +213,15 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		},
 	}
 
+	logger.InfoKV(ctx, "config dump", "config", appCfg)
+
 	return appCfg, nil
 }
 
-func parseTimePeriod(env string) (int64, error) {
-	timeMS, err := strconv.ParseInt(os.Getenv(env), 10, 64)
+func parseTimePeriod(cfg envCfg) (int64, error) {
+	timeMS, err := strconv.ParseInt(cfg.value(), 10, 64)
 	if err != nil {
-		return 0, errors.Errorf("parse %s: %v", env, err)
+		return 0, errors.Errorf("parse %s: %v", cfg.env, err)
 	}
 	return timeMS, nil
 }

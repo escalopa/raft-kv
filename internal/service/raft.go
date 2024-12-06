@@ -409,7 +409,7 @@ func (rf *RaftState) applyEntry(ctx context.Context, entry *core.Entry) error {
 func (rf *RaftState) processElection() {
 	defer rf.wg.Done()
 
-	timer := time.NewTimer(rf.config.GetElectionDelayPeriod())
+	timer := time.NewTimer(rf.config.GetElectionDelay())
 	defer timer.Stop()
 
 	<-timer.C // wait for the delay before starting the election
@@ -417,7 +417,7 @@ func (rf *RaftState) processElection() {
 	logger.WarnKV(rf.ctx, "election timeout loop on")
 
 	for {
-		timer.Reset(rf.config.GetElectionTimeoutPeriod())
+		timer.Reset(rf.config.GetElectionTimeout())
 
 		select {
 		case <-timer.C:
@@ -468,7 +468,7 @@ func (rf *RaftState) startElection(ctx context.Context) {
 
 	for raftID, server := range rf.servers {
 		errG.Go(func() error {
-			sendCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond) // TODO: make this configurable
+			sendCtx, cancel := context.WithTimeout(ctx, rf.config.GetRequestVoteTimeout())
 			defer cancel()
 
 			res, err := server.RequestVote(sendCtx, &desc.RequestVoteRequest{

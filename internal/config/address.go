@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func parseClusterConfig(ctx context.Context, raftID uint64, cluster []string) ([]core.Node, error) {
+func parseClusterConfig(_ context.Context, raftID uint64, cluster []string) ([]core.Node, error) {
 	var (
 		nodes     = make([]core.Node, 0, len(cluster))
 		uniqueIDs = make(map[uint64]struct{})

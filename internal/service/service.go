@@ -50,11 +50,13 @@ type (
 		// general
 
 		GetCommitPeriod() time.Duration
+		GetAppendEntriesTimeout() time.Duration
+		GetRequestVoteTimeout() time.Duration
 
 		// follower
 
-		GetElectionDelayPeriod() time.Duration
-		GetElectionTimeoutPeriod() time.Duration
+		GetElectionDelay() time.Duration
+		GetElectionTimeout() time.Duration
 
 		// leader
 

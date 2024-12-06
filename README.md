@@ -36,31 +36,22 @@ task ui
 
 - [raft](./api/raft/raft.proto)
 - [kv](./api/kv/kv.proto)
- 
-[//]: # (## Config)
 
-[//]: # (| Key                                | Description                                               |)
+## Config
 
-[//]: # (|------------------------------------|-----------------------------------------------------------|)
-
-[//]: # (| RAFT_ID                            | ID of the node                                            |)
-
-[//]: # (| RAFT_CLUSTER                       | Comma separated list of nodes                             |)
-
-[//]: # (| RAFT_COMMIT_PERIOD                 | Period to commit the log &#40;if commit_index > last_applied&#41; |)
-
-[//]: # (| RAFT_ELECTION_DELAY_PERIOD         | Period to delay the election &#40;only on startup&#41;            |)
-
-[//]: # (| RAFT_ELECTION_TIMEOUT_PERIOD       | Period to timeout the election                            |)
-
-[//]: # (| RAFT_HEARTBEAT_PERIOD              | Period to send the heartbeat                              |)
-
-[//]: # (| RAFT_LEADER_STALE_PERIOD           | Period to check the leader staleness                      |)
-
-[//]: # (| RAFT_LEADER_CHECK_STEP_DOWN_PERIOD | Period to check the leader step down                      |)
-
-[//]: # (| BADGER_ENTRY_PATH                  | Path to store the entries                                 |)
-
-[//]: # (| BADGER_STATE_PATH                  | Path to store the state                                   |)
-
-[//]: # (| BADGER_KV_PATH                     | Path to store the key-value                               |)
+| ENV                            | Description                                      | Default Value | Example                           |
+|--------------------------------|--------------------------------------------------|---------------|-----------------------------------|
+| LOG_LEVEL                      | Logging level for the application                | WARN          | INFO                              |
+| RAFT_ID                        | Node identifier                                  |               | 1                                 |
+| RAFT_CLUSTER                   | Cluster node addresses (format: ID@HOST:PORT)    |               | 1@raft-kv-1:8000,2@raft-kv-2:8000 |
+| RAFT_COMMIT_PERIOD             | Commit period (ms)                               | 50            | 100                               |
+| RAFT_APPEND_ENTRIES_TIMEOUT    | Append entries timeout (ms)                      | 150           | 200                               |
+| RAFT_REQUEST_VOTE_TIMEOUT      | Request vote timeout (ms)                        | 150           | 200                               |
+| RAFT_ELECTION_DELAY_PERIOD     | Election delay period (ms)                       | 3000          | 4000                              |
+| RAFT_ELECTION_TIMEOUT_PERIOD   | Election timeout (ms)                            | 300           | 400                               |
+| RAFT_HEARTBEAT_PERIOD          | Heartbeat interval (ms)                          | 50            | 100                               |
+| RAFT_LEADER_STALE_PERIOD       | Leader stale threshold (ms)                      | 200           | 300                               |
+| RAFT_LEADER_STALE_CHECK_PERIOD | Leader stale check frequency (ms)                | 100           | 150                               |
+| BADGER_ENTRY_PATH              | Log storage path                                 | /data/entry   | /var/entry                        |
+| BADGER_STATE_PATH              | Raft state storage path                          | /data/state   | /var/state                        |
+| BADGER_KV_PATH                 | State machine storage path                       | /data/kv      | /var/kv                           |
