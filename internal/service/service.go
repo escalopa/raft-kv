@@ -47,17 +47,17 @@ type (
 	Config interface {
 		// general
 
-		GetInitialDelay() time.Duration
-		GetCommitPeriod() time.Duration
-		GetAppendEntriesTimeout() time.Duration
 		GetRequestVoteTimeout() time.Duration
+		GetAppendEntriesTimeout() time.Duration
+
+		GetStartDelay() time.Duration
+		GetCommitPeriod() time.Duration
 		GetElectionTimeout() time.Duration
 
 		// leader
 
-		GetHeartbeatPeriod() time.Duration
 		GetLeaderStalePeriod() time.Duration
-		GetLeaderCheckStalePeriod() time.Duration
+		GetLeaderHeartbeatPeriod() time.Duration
 	}
 )
 
@@ -162,7 +162,7 @@ func (r *Raft) Run() {
 }
 
 func (r *Raft) run() {
-	<-time.After(r.config.GetInitialDelay()) // wait X time before the start of the cluster
+	<-time.After(r.config.GetStartDelay()) // wait X time before the start of the cluster
 
 	for {
 		select {

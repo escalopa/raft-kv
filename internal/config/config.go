@@ -34,16 +34,18 @@ var (
 	raftClusterEnv = "RAFT_CLUSTER"
 
 	// general
-	raftCommitPeriod           = envCfg{env: "RAFT_COMMIT_PERIOD", def: "50"}
-	appendEntriesTimeoutPeriod = envCfg{env: "RAFT_APPEND_ENTRIES_TIMEOUT", def: "150"}
-	requestVoteTimeoutPeriod   = envCfg{env: "RAFT_REQUEST_VOTE_TIMEOUT", def: "150"}
-	raftInitialDelayPeriod     = envCfg{env: "RAFT_INITIAL_DELAY_PERIOD", def: "1500"}
-	raftElectionTimeoutPeriod  = envCfg{env: "RAFT_ELECTION_TIMEOUT_PERIOD", def: "300"}
+	requestVoteTimeoutEnv   = envCfg{env: "RAFT_REQUEST_VOTE_TIMEOUT", def: "150"}
+	appendEntriesTimeoutEnv = envCfg{env: "RAFT_APPEND_ENTRIES_TIMEOUT", def: "150"}
+
+	raftCommitPeriodEnv = envCfg{env: "RAFT_COMMIT_PERIOD", def: "50"}
+
+	// election
+	raftStartDelayEnv      = envCfg{env: "RAFT_START_DELAY", def: "1500"}
+	raftElectionTimeoutEnv = envCfg{env: "RAFT_ELECTION_TIMEOUT", def: "300"}
 
 	// leader
-	raftHeartbeatPeriod        = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
-	raftLeaderStalePeriod      = envCfg{env: "RAFT_LEADER_STALE_PERIOD", def: "200"}
-	raftLeaderStaleCheckPeriod = envCfg{env: "RAFT_LEADER_STALE_CHECK_PERIOD", def: "100"}
+	raftStalePeriod     = envCfg{env: "RAFT_STALE_PERIOD", def: "200"}
+	raftHeartbeatPeriod = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
 
 	// db
 	badgerEntryPath = envCfg{env: "BADGER_ENTRY_PATH", def: "/data/entry"}
@@ -53,22 +55,20 @@ var (
 
 type (
 	LeaderConfig struct {
-		StalePeriod         int64
-		HeartbeatPeriod     int64
-		CheckStepDownPeriod int64
+		StalePeriod     int64
+		HeartbeatPeriod int64
 	}
 
 	RaftConfig struct {
 		ID      core.ServerID
 		Cluster []core.Node
 
-		CommitPeriod int64
-
-		ElectionDelay   int64
-		ElectionTimeout int64
-
+		CommitPeriod         int64
 		AppendEntriesTimeout int64
 		RequestVoteTimeout   int64
+
+		StartDelay      int64
+		ElectionTimeout int64
 
 		Leader LeaderConfig
 	}
@@ -85,36 +85,32 @@ type (
 	}
 )
 
-func (ac *AppConfig) GetCommitPeriod() time.Duration {
-	return time.Duration(randIn2X(ac.Raft.CommitPeriod)) * time.Millisecond
+func (ac *AppConfig) GetRequestVoteTimeout() time.Duration {
+	return time.Duration(ac.Raft.RequestVoteTimeout) * time.Millisecond
 }
 
 func (ac *AppConfig) GetAppendEntriesTimeout() time.Duration {
 	return time.Duration(ac.Raft.AppendEntriesTimeout) * time.Millisecond
 }
 
-func (ac *AppConfig) GetRequestVoteTimeout() time.Duration {
-	return time.Duration(ac.Raft.RequestVoteTimeout) * time.Millisecond
+func (ac *AppConfig) GetStartDelay() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.StartDelay)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetInitialDelay() time.Duration {
-	return time.Duration(randIn2X(ac.Raft.ElectionDelay)) * time.Millisecond
+func (ac *AppConfig) GetCommitPeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.CommitPeriod)) * time.Millisecond
 }
 
 func (ac *AppConfig) GetElectionTimeout() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.ElectionTimeout)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetHeartbeatPeriod() time.Duration {
-	return time.Duration(randIn2X(ac.Raft.Leader.HeartbeatPeriod)) * time.Millisecond
-}
-
 func (ac *AppConfig) GetLeaderStalePeriod() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.Leader.StalePeriod)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetLeaderCheckStalePeriod() time.Duration {
-	return time.Duration(randIn2X(ac.Raft.Leader.CheckStepDownPeriod)) * time.Millisecond
+func (ac *AppConfig) GetLeaderHeartbeatPeriod() time.Duration {
+	return time.Duration(randIn2X(ac.Raft.Leader.HeartbeatPeriod)) * time.Millisecond
 }
 
 func NewAppConfig(ctx context.Context) (*AppConfig, error) {
@@ -141,27 +137,27 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 	}
 
 	// Parse Time Periods
-	commitPeriod, err := parseTimePeriod(raftCommitPeriod)
+	commitPeriod, err := parseTimePeriod(raftCommitPeriodEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	appendEntriesTimeout, err := parseTimePeriod(appendEntriesTimeoutPeriod)
+	appendEntriesTimeout, err := parseTimePeriod(appendEntriesTimeoutEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	requestVoteTimeout, err := parseTimePeriod(requestVoteTimeoutPeriod)
+	requestVoteTimeout, err := parseTimePeriod(requestVoteTimeoutEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	electionDelay, err := parseTimePeriod(raftInitialDelayPeriod)
+	startDelay, err := parseTimePeriod(raftStartDelayEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	electionTimeout, err := parseTimePeriod(raftElectionTimeoutPeriod)
+	electionTimeout, err := parseTimePeriod(raftElectionTimeoutEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -171,12 +167,7 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, err
 	}
 
-	leaderStalePeriod, err := parseTimePeriod(raftLeaderStalePeriod)
-	if err != nil {
-		return nil, err
-	}
-
-	checkStepDownPeriod, err := parseTimePeriod(raftLeaderStaleCheckPeriod)
+	stalePeriod, err := parseTimePeriod(raftStalePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -195,13 +186,12 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 			AppendEntriesTimeout: appendEntriesTimeout,
 			RequestVoteTimeout:   requestVoteTimeout,
 
-			ElectionDelay:   electionDelay,
+			StartDelay:      startDelay,
 			ElectionTimeout: electionTimeout,
 
 			Leader: LeaderConfig{
-				StalePeriod:         leaderStalePeriod,
-				HeartbeatPeriod:     heartbeatPeriod,
-				CheckStepDownPeriod: checkStepDownPeriod,
+				StalePeriod:     stalePeriod,
+				HeartbeatPeriod: heartbeatPeriod,
 			},
 		},
 		Badger: BadgerConfig{

@@ -7,17 +7,16 @@ services:
       - "7001:7000"
       - "8001:8000"
     environment:
+      - LOG_LEVEL=WARN
       # general
       - RAFT_ID=1
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
       - RAFT_COMMIT_PERIOD=50
-      # follower
-      - RAFT_ELECTION_DELAY_PERIOD=1500
-      - RAFT_ELECTION_TIMEOUT_PERIOD=150
+      - RAFT_START_DELAY=1500
+      - RAFT_ELECTION_TIMEOUT=150
       # leader
+      - RAFT_STALE_PERIOD=200
       - RAFT_HEARTBEAT_PERIOD=50
-      - RAFT_LEADER_STALE_PERIOD=200
-      - RAFT_LEADER_STALE_CHECK_PERIOD=100
       # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
@@ -36,17 +35,16 @@ services:
       - "7002:7000"
       - "8002:8000"
     environment:
+      - LOG_LEVEL=WARN
       # general
       - RAFT_ID=2
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
       - RAFT_COMMIT_PERIOD=50
-      # follower
-      - RAFT_ELECTION_DELAY_PERIOD=1500
-      - RAFT_ELECTION_TIMEOUT_PERIOD=150
+      - RAFT_START_DELAY=1500
+      - RAFT_ELECTION_TIMEOUT=150
       # leader
+      - RAFT_STALE_PERIOD=200
       - RAFT_HEARTBEAT_PERIOD=50
-      - RAFT_LEADER_STALE_PERIOD=200
-      - RAFT_LEADER_STALE_CHECK_PERIOD=100
       # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
@@ -65,17 +63,16 @@ services:
       - "7003:7000"
       - "8003:8000"
     environment:
+      - LOG_LEVEL=WARN
       # general
       - RAFT_ID=3
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
       - RAFT_COMMIT_PERIOD=50
-      # follower
-      - RAFT_ELECTION_DELAY_PERIOD=1500
-      - RAFT_ELECTION_TIMEOUT_PERIOD=150
+      - RAFT_START_DELAY=1500
+      - RAFT_ELECTION_TIMEOUT=150
       # leader
+      - RAFT_STALE_PERIOD=200
       - RAFT_HEARTBEAT_PERIOD=50
-      - RAFT_LEADER_STALE_PERIOD=200
-      - RAFT_LEADER_STALE_CHECK_PERIOD=100
       # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
@@ -94,17 +91,16 @@ services:
       - "7004:7000"
       - "8004:8000"
     environment:
+      - LOG_LEVEL=WARN
       # general
       - RAFT_ID=4
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
       - RAFT_COMMIT_PERIOD=50
-      # follower
-      - RAFT_ELECTION_DELAY_PERIOD=1500
-      - RAFT_ELECTION_TIMEOUT_PERIOD=150
+      - RAFT_START_DELAY=1500
+      - RAFT_ELECTION_TIMEOUT=150
       # leader
+      - RAFT_STALE_PERIOD=200
       - RAFT_HEARTBEAT_PERIOD=50
-      - RAFT_LEADER_STALE_PERIOD=200
-      - RAFT_LEADER_STALE_CHECK_PERIOD=100
       # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state
@@ -123,17 +119,16 @@ services:
       - "7005:7000"
       - "8005:8000"
     environment:
+      - LOG_LEVEL=WARN
       # general
       - RAFT_ID=5
       - RAFT_CLUSTER=1@raft-kv-1:8000,2@raft-kv-2:8000,3@raft-kv-3:8000,4@raft-kv-4:8000,5@raft-kv-5:8000
       - RAFT_COMMIT_PERIOD=50
-      # follower
-      - RAFT_ELECTION_DELAY_PERIOD=1500
-      - RAFT_ELECTION_TIMEOUT_PERIOD=150
+      - RAFT_START_DELAY=1500
+      - RAFT_ELECTION_TIMEOUT=150
       # leader
+      - RAFT_STALE_PERIOD=200
       - RAFT_HEARTBEAT_PERIOD=50
-      - RAFT_LEADER_STALE_PERIOD=200
-      - RAFT_LEADER_STALE_CHECK_PERIOD=100
       # db
       - BADGER_ENTRY_PATH=/data/entry
       - BADGER_STATE_PATH=/data/state

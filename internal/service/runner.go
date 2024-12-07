@@ -163,9 +163,9 @@ func (r *Raft) runLeader() {
 
 	wg := &sync.WaitGroup{}
 	for raftID := range r.servers {
-		r.goLoop(wg, func() { r.sendHeartbeat(raftID) }, r.config.GetHeartbeatPeriod, stopChan)
+		r.goLoop(wg, func() { r.sendHeartbeat(raftID) }, r.config.GetLeaderHeartbeatPeriod, stopChan)
 	}
-	r.goLoop(wg, func() { r.checkResignState(resignChan) }, r.config.GetLeaderCheckStalePeriod, stopChan)
+	r.goLoop(wg, func() { r.checkResignState(resignChan) }, r.config.GetLeaderStalePeriod, stopChan)
 
 	defer func() {
 		tryClose(stopChan)
