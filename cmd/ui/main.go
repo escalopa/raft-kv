@@ -16,7 +16,7 @@ func main() {
 	url := fmt.Sprintf("http://localhost:%d", port)
 	fmt.Printf("Server running at %s\n", url)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = w.Write([]byte(indexHTML))
 	})

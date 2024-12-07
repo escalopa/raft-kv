@@ -2,13 +2,13 @@ package config
 
 import (
 	"context"
-	"github.com/catalystgo/logger/logger"
 	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/catalystgo/logger/logger"
 	"github.com/escalopa/raft-kv/internal/core"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -28,7 +28,7 @@ func (e *envCfg) value() string {
 }
 
 var (
-	logLevelEnv = "LOG_LEVEL" // log level env key (default: "WARN")
+	logLevel = envCfg{env: "LOG_LEVEL", def: "INFO"} // log level env key (default: "INFO")
 
 	raftIDEnv      = "RAFT_ID"
 	raftClusterEnv = "RAFT_CLUSTER"
@@ -37,10 +37,8 @@ var (
 	raftCommitPeriod           = envCfg{env: "RAFT_COMMIT_PERIOD", def: "50"}
 	appendEntriesTimeoutPeriod = envCfg{env: "RAFT_APPEND_ENTRIES_TIMEOUT", def: "150"}
 	requestVoteTimeoutPeriod   = envCfg{env: "RAFT_REQUEST_VOTE_TIMEOUT", def: "150"}
-
-	// follower
-	raftElectionDelayPeriod   = envCfg{env: "RAFT_ELECTION_DELAY_PERIOD", def: "3000"}
-	raftElectionTimeoutPeriod = envCfg{env: "RAFT_ELECTION_TIMEOUT_PERIOD", def: "300"}
+	raftInitialDelayPeriod     = envCfg{env: "RAFT_INITIAL_DELAY_PERIOD", def: "1500"}
+	raftElectionTimeoutPeriod  = envCfg{env: "RAFT_ELECTION_TIMEOUT_PERIOD", def: "300"}
 
 	// leader
 	raftHeartbeatPeriod        = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
@@ -99,7 +97,7 @@ func (ac *AppConfig) GetRequestVoteTimeout() time.Duration {
 	return time.Duration(ac.Raft.RequestVoteTimeout) * time.Millisecond
 }
 
-func (ac *AppConfig) GetElectionDelay() time.Duration {
+func (ac *AppConfig) GetInitialDelay() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.ElectionDelay)) * time.Millisecond
 }
 
@@ -115,7 +113,7 @@ func (ac *AppConfig) GetLeaderStalePeriod() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.Leader.StalePeriod)) * time.Millisecond
 }
 
-func (ac *AppConfig) GetLeaderCheckStepDownPeriod() time.Duration {
+func (ac *AppConfig) GetLeaderCheckStalePeriod() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.Leader.CheckStepDownPeriod)) * time.Millisecond
 }
 
@@ -158,7 +156,7 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, err
 	}
 
-	electionDelay, err := parseTimePeriod(raftElectionDelayPeriod)
+	electionDelay, err := parseTimePeriod(raftInitialDelayPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -232,9 +230,10 @@ func randIn2X(min int64) int64 {
 }
 
 func LogLevel() zapcore.Level {
-	lvl, err := zapcore.ParseLevel(os.Getenv(logLevelEnv))
+	lvl, err := zapcore.ParseLevel(logLevel.value())
 	if err == nil {
 		return lvl
 	}
-	return zapcore.WarnLevel // default
+	logger.WarnKV(context.Background(), "parse log_level", "error", err, "value", logLevel.value())
+	return zapcore.InfoLevel // default
 }

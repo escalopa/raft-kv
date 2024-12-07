@@ -11,36 +11,25 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (rf *RaftState) processRaftRPC() {
-	defer rf.wg.Done()
-
-	for {
-		select {
-		case req := <-rf.appendEntriesChan:
-			rf.resetElectionTimeout()
-			res, err := rf.appendEntries(req.ctx, req.req)
-			if err != nil {
-				req.err <- err
-				continue
-			}
-			req.res <- res
-		case req := <-rf.requestVoteChan:
-			rf.resetElectionTimeout()
-			res, err := rf.requestVote(req.ctx, req.req)
-			if err != nil {
-				req.err <- err
-				continue
-			}
-			req.res <- res
-		case <-rf.ctx.Done():
-			return
-		}
+func (r *Raft) processRPC(req interface{}) {
+	switch req := req.(type) {
+	case *appendEntriesRequest:
+		res, err := r.appendEntries(req.ctx, req.req)
+		req.reply(res, err)
+	case *requestVoteRequest:
+		res, err := r.requestVote(req.ctx, req.req)
+		req.reply(res, err)
+	case *replicateRequest:
+		err := r.replicate(req.ctx, req.data)
+		req.reply(err)
+	default:
+		logger.ErrorKV(r.ctx, "unknown request type", "req", req)
 	}
 }
 
-func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesRequest) (*desc.AppendEntriesResponse, error) {
+func (r *Raft) appendEntries(ctx context.Context, req *desc.AppendEntriesRequest) (*desc.AppendEntriesResponse, error) {
 	var (
-		term     = rf.state.GetTerm()
+		term     = r.state.GetTerm()
 		response = &desc.AppendEntriesResponse{
 			Term:    term,
 			Success: false,
@@ -51,13 +40,10 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		reqPrevLogIndex = req.GetPrevLogIndex()
 	)
 
-	lastEntry, err := rf.getLastEntry(ctx)
-	if err != nil {
-		logger.ErrorKV(ctx, "append entries last", "error", err)
-		return nil, err
-	}
+	defer r.state.UpdateLastContact()
 
-	response.LastLogIndex = lastEntry.Index
+	lastLogIndex, _ := r.state.GetLastLog()
+	response.LastLogIndex = lastLogIndex
 
 	// Reply false if term < currentTerm
 	if reqTerm < term {
@@ -66,13 +52,12 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 	}
 
 	if reqTerm > term {
-		rf.sendStateUpdate(core.StateUpdate{
-			Type: core.StateUpdateTypeTerm,
-			Term: reqTerm,
-		})
+		r.state.SetTerm(reqTerm)
+		r.state.SetLeaderID(req.GetLeaderId())
+		r.state.SetState(FollowerState)
 	}
 
-	entry, err := rf.entryStore.At(ctx, reqPrevLogIndex)
+	entry, err := r.entryStore.At(ctx, reqPrevLogIndex)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			logger.ErrorKV(ctx, "append entries at", "error", err)
@@ -99,7 +84,6 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 			"entry_term", entry.Term,
 			"req_term", reqPrevLogTerm,
 		)
-
 		return response, nil
 	}
 
@@ -112,44 +96,43 @@ func (rf *RaftState) appendEntries(ctx context.Context, req *desc.AppendEntriesR
 		}
 	}
 
-	err = rf.entryStore.AppendEntries(ctx, entries...)
+	err = r.entryStore.AppendEntries(ctx, entries...)
 	if err != nil {
 		logger.ErrorKV(ctx, "append entries", "error", err)
 		return nil, err
 	}
 
-	if req.GetLeaderCommit() > rf.state.GetCommitIndex() {
+	logChanged := len(entries) > 0
+
+	if logChanged {
+		lastEntry := entries[len(entries)-1]
+		r.state.SetLastLog(lastEntry.Index, lastEntry.Term) // update last log
+	}
+
+	if req.GetLeaderCommit() > r.state.GetCommitIndex() {
 		commitIndex := req.GetLeaderCommit()
 
-		// Entries might be empty if the leader is sending a heartbeat only
-		if len(entries) > 0 {
+		if logChanged {
 			commitIndex = min(commitIndex, entries[len(entries)-1].Index)
 		}
 
-		rf.sendStateUpdate(core.StateUpdate{
-			Type:        core.StateUpdateTypeCommitIndex,
-			CommitIndex: commitIndex,
-		})
+		r.state.SetCommitIndex(commitIndex)
 	}
 
-	state := rf.state.GetState()
-	if state == core.Leader || state == core.Candidate {
-		logger.WarnKV(ctx, "append entries step down to follower", "raft_id", req.GetLeaderId(), "state", state)
-
-		rf.sendStateUpdate(core.StateUpdate{
-			Type:     core.StateUpdateTypeState,
-			State:    core.Follower,
-			LeaderID: req.GetLeaderId(),
-		})
+	state := r.state.GetState()
+	if state == LeaderState || state == CandidateState {
+		logger.WarnKV(ctx, "append entries resign to follower", "raft_id", req.GetLeaderId(), "state", state)
+		r.state.SetState(FollowerState)
 	}
 
 	response.Success = true
 	return response, nil
 }
 
-func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
+func (r *Raft) requestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
 	var (
-		term     = rf.state.GetTerm()
+		term = r.state.GetTerm()
+
 		response = &desc.RequestVoteResponse{
 			Term:        term,
 			VoteGranted: false,
@@ -159,6 +142,8 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 		reqLastLogTerm  = req.GetLastLogTerm()
 		reqLastLogIndex = req.GetLastLogIndex()
 	)
+
+	defer r.state.UpdateLastContact()
 
 	if reqTerm < term {
 		logger.InfoKV(ctx, "request vote term < current term",
@@ -171,29 +156,18 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 	}
 
 	if reqTerm > term {
-		rf.sendStateUpdate(core.StateUpdate{
-			Type: core.StateUpdateTypeTerm,
-			Term: reqTerm,
-		})
+		r.state.SetTerm(reqTerm)
 	}
 
-	lastEntry, err := rf.getLastEntry(ctx)
-	if err != nil {
-		logger.ErrorKV(ctx, "request vote last", "error", err)
-		return nil, err
-	}
-
-	if reqLastLogTerm > lastEntry.Term || (reqLastLogTerm == lastEntry.Term && reqLastLogIndex >= lastEntry.Index) {
-		votedFor := rf.state.GetVotedFor()
+	lastLogIndex, lastLogTerm := r.state.GetLastLog()
+	if reqLastLogTerm > lastLogTerm || (reqLastLogTerm == lastLogTerm && reqLastLogIndex >= lastLogIndex) {
+		votedFor := r.state.GetVotedFor()
 
 		// Give vote only if the term is higher (i.e a new election) or we haven't voted yet
 		if reqTerm > term || votedFor == 0 {
-			rf.sendStateUpdate(core.StateUpdate{
-				Type:     core.StateUpdateTypeState,
-				State:    core.Follower,
-				VotedFor: req.GetCandidateId(),
-			})
-
+			r.state.SetState(FollowerState)
+			r.state.SetVotedFor(req.GetCandidateId())
+			r.state.SetLeaderID(req.GetCandidateId())
 			response.VoteGranted = true
 		}
 	}
@@ -205,8 +179,8 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 			"req_term", reqTerm,
 			"req_last_entry_index", reqLastLogIndex,
 			"req_last_entry_term", reqLastLogTerm,
-			"last_entry_index", lastEntry.Index,
-			"last_entry_term", lastEntry.Term,
+			"last_entry_index", lastLogIndex,
+			"last_entry_term", lastLogTerm,
 		)
 	} else {
 		logger.WarnKV(ctx, "vote not given",
@@ -215,45 +189,29 @@ func (rf *RaftState) requestVote(ctx context.Context, req *desc.RequestVoteReque
 			"req_term", reqTerm,
 			"req_last_entry_index", reqLastLogIndex,
 			"req_last_entry_term", reqLastLogTerm,
-			"last_entry_index", lastEntry.Index,
-			"last_entry_term", lastEntry.Term,
+			"last_entry_index", lastLogIndex,
+			"last_entry_term", lastLogTerm,
 		)
 	}
 
 	return response, nil
 }
 
-func (rf *RaftState) processReplicate() {
-	defer rf.wg.Done()
+func (r *Raft) replicate(ctx context.Context, data []string) error {
+	var (
+		term        = r.state.GetTerm()
+		commitIndex = r.state.GetCommitIndex()
+	)
 
-	for {
-		select {
-		case req := <-rf.replicateChan:
-			err := rf.replicate(req.ctx, req.data)
-			req.err <- err
-		case <-rf.ctx.Done():
-			return
-		}
-	}
-}
-
-func (rf *RaftState) replicate(ctx context.Context, data []string) error {
-	term := rf.state.GetTerm()
-
-	lastEntry, err := rf.getLastEntry(ctx)
-	if err != nil {
-		logger.ErrorKV(ctx, "replicate last entry", "error", err)
-		return err
-	}
-
+	lastLogIndex, lastLogTerm := r.state.GetLastLog()
 	entry := &core.Entry{
 		Term:  term,
-		Index: lastEntry.Index + 1,
+		Index: lastLogIndex + 1,
 		Data:  data,
 	}
 
 	// Append the entry to the log
-	err = rf.entryStore.AppendEntries(ctx, entry)
+	err := r.entryStore.AppendEntries(ctx, entry)
 	if err != nil {
 		return err
 	}
@@ -266,32 +224,33 @@ func (rf *RaftState) replicate(ctx context.Context, data []string) error {
 		}
 
 		errG         = errgroup.Group{}
-		responseChan = make(chan *desc.AppendEntriesResponse, rf.quorum)
-
-		// Close the done channel when the replication is done at least on
-		// the majority of the servers, i.e. we can ignore the rest of the responses
-		done = make(chan struct{})
+		responseChan = make(chan *replicateResponse, len(r.servers))
 	)
 
 	// Replicate the entry to the followers
-	for serverID, server := range rf.servers {
+	for raftID, server := range r.servers {
 		errG.Go(func() error {
-			response, err := server.AppendEntries(ctx, &desc.AppendEntriesRequest{
+			sendCtx, cancel := context.WithTimeout(ctx, r.config.GetAppendEntriesTimeout())
+			defer cancel()
+
+			response, err := server.AppendEntries(sendCtx, &desc.AppendEntriesRequest{
 				Term:         term,
-				LeaderId:     uint64(rf.raftID),
-				PrevLogIndex: lastEntry.Index,
-				PrevLogTerm:  lastEntry.Term,
+				LeaderId:     uint64(r.raftID),
+				PrevLogIndex: lastLogIndex,
+				PrevLogTerm:  lastLogTerm,
 				Entries:      []*desc.Entry{descEntry},
-				LeaderCommit: rf.state.GetCommitIndex(),
+				LeaderCommit: commitIndex,
 			})
 			if err != nil {
-				logger.ErrorKV(ctx, "replicate entry", "error", err, "raft_id", serverID)
+				logger.ErrorKV(ctx, "replicate entry", "error", err, "raft_id", raftID)
 				return err
 			}
-			select {
-			case responseChan <- response:
-			case <-done: // ignore the rest of the responses
+
+			responseChan <- &replicateResponse{
+				raftID: raftID,
+				res:    response,
 			}
+
 			return nil
 		})
 	}
@@ -303,259 +262,91 @@ func (rf *RaftState) replicate(ctx context.Context, data []string) error {
 
 	success := uint32(1) // count the leader as a vote
 	for resp := range responseChan {
-		if resp.Success {
+		if resp.res.Success {
 			success++
 
-			// TODO: on success request update nextIndex in leader for heartbeat
-			// 	currently this leads to double replication of the entry
+			// update the nextIndex and matchIndex for the follower (prevent re-sending the same entry)
+			r.leader.nextIndex.Store(resp.raftID, entry.Index+1)
+			r.leader.matchIndex.Store(resp.raftID, entry.Index)
 
-			if success == rf.quorum {
-				rf.sendStateUpdate(core.StateUpdate{
-					Type:        core.StateUpdateTypeCommitIndex,
-					CommitIndex: entry.Index,
-				})
-				close(done)
+			if success == r.quorum {
+				r.state.SetLastLog(entry.Index, entry.Term)
+				r.state.SetCommitIndex(entry.Index)
 				logger.WarnKV(ctx, "replication done", "entry_index", entry.Index)
 				break
 			}
-		}
-
-		// If the term is higher than the current term, update the term and continue collecting votes
-		if resp.GetTerm() > term {
-			rf.sendStateUpdate(core.StateUpdate{
-				Type: core.StateUpdateTypeTerm,
-				Term: resp.GetTerm(),
-			})
+		} else {
+			resTerm := resp.res.GetTerm()
+			if resTerm > term {
+				r.state.SetTerm(resTerm)
+			}
 		}
 	}
 
-	if success != rf.quorum {
+	if success != r.quorum {
 		return core.ErrReplicateQuorumUnreachable
 	}
 
 	return nil
 }
 
-func (rf *RaftState) processCommit() {
-	defer rf.wg.Done()
+func (r *Raft) commit() {
+	defer r.wg.Done()
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
 	for {
-		timer.Reset(rf.config.GetCommitPeriod())
+		timer.Reset(r.config.GetCommitPeriod())
 
 		select {
 		case <-timer.C:
-			rf.commit(rf.ctx)
-		case <-rf.ctx.Done():
+			r.tryCommit()
+		case <-r.shutdownChan:
+			logger.WarnKV(r.ctx, "commit shutdown")
 			return
 		}
 	}
 }
 
-func (rf *RaftState) commit(ctx context.Context) {
-	lastApplied := rf.state.GetLastApplied()
-	commitIndex := rf.state.GetCommitIndex()
+func (r *Raft) tryCommit() {
+	lastApplied := r.state.GetLastApplied()
+	commitIndex := r.state.GetCommitIndex()
 
 	if lastApplied == commitIndex {
-		return
+		return // nothing to commit
 	}
 
 	for lastApplied < commitIndex {
-		entry, err := rf.entryStore.At(ctx, lastApplied+1)
+		index := lastApplied + 1
+
+		entry, err := r.entryStore.At(r.ctx, index)
 		if err != nil {
 			if !errors.Is(err, core.ErrNotFound) {
-				logger.ErrorKV(ctx, "commit at", "error", err)
+				logger.ErrorKV(r.ctx, "commit at", "error", err, "index", index)
 			}
 			break
 		}
 
-		err = rf.applyEntry(ctx, entry)
+		err = r.applyEntry(entry)
 		if err != nil {
-			logger.ErrorKV(ctx, "commit apply entry", "error", err)
+			logger.ErrorKV(r.ctx, "commit apply entry", "error", err, "index", index)
 			break
 		}
 
-		rf.sendStateUpdate(core.StateUpdate{
-			Type:        core.StateUpdateTypeLastApplied,
-			LastApplied: entry.Index,
-		})
-
+		r.state.SetLastApplied(index)
 		lastApplied++
 	}
 }
 
-func (rf *RaftState) applyEntry(ctx context.Context, entry *core.Entry) error {
-	var err error
-
+func (r *Raft) applyEntry(entry *core.Entry) error {
 	entryType := entry.Data[0]
 	switch entryType {
 	case core.Set.String():
-		err = rf.kvStore.Set(ctx, entry.Data[1], entry.Data[2])
+		return r.kvStore.Set(r.ctx, entry.Data[1], entry.Data[2])
 	case core.Del.String():
-		err = rf.kvStore.Del(ctx, entry.Data[1])
+		return r.kvStore.Del(r.ctx, entry.Data[1])
 	default:
-		err = core.ErrUnknownEntryType
+		return core.ErrUnknownEntryType
 	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (rf *RaftState) processElection() {
-	defer rf.wg.Done()
-
-	timer := time.NewTimer(rf.config.GetElectionDelay())
-	defer timer.Stop()
-
-	<-timer.C // wait for the delay before starting the election
-
-	logger.WarnKV(rf.ctx, "election timeout loop on")
-
-	for {
-		timer.Reset(rf.config.GetElectionTimeout())
-
-		select {
-		case <-timer.C:
-		case <-rf.heartbeat:
-			// If we receive a heartbeat, we should reset the timer
-			continue
-		case <-rf.ctx.Done():
-			// If the context is done then app is shutting down
-			// so we should stop the loop
-			return
-		}
-
-		if !rf.state.IsLeader() {
-			logger.WarnKV(rf.ctx, "starting election")
-			rf.startElection(rf.ctx)
-		}
-	}
-}
-
-func (rf *RaftState) startElection(ctx context.Context) {
-	rf.sendStateUpdate(core.StateUpdate{
-		Type:  core.StateUpdateTypeState,
-		State: core.Candidate,
-	})
-
-	lastEntry, err := rf.getLastEntry(ctx)
-	if err != nil {
-		logger.ErrorKV(ctx, "election last entry", "error", err)
-		return
-	}
-
-	var (
-		term = rf.state.GetTerm()
-
-		errG         = errgroup.Group{}
-		responseChan = make(chan struct{})
-
-		// Close the done channel when the vote is collected at least from
-		// the majority of the servers, i.e. we can ignore the rest of the responses
-		done = make(chan struct{})
-	)
-
-	logger.WarnKV(ctx, "election info",
-		"term", term,
-		"last_log_index", lastEntry.Index,
-		"last_log_term", lastEntry.Term,
-	)
-
-	for raftID, server := range rf.servers {
-		errG.Go(func() error {
-			sendCtx, cancel := context.WithTimeout(ctx, rf.config.GetRequestVoteTimeout())
-			defer cancel()
-
-			res, err := server.RequestVote(sendCtx, &desc.RequestVoteRequest{
-				Term:         term,
-				CandidateId:  uint64(rf.raftID),
-				LastLogIndex: lastEntry.Index,
-				LastLogTerm:  lastEntry.Term,
-			})
-
-			if err != nil {
-				logger.ErrorKV(ctx, "election request vote", "error", err, "voter", raftID)
-				return nil
-			}
-
-			if res.GetTerm() > term {
-				rf.sendStateUpdate(core.StateUpdate{
-					Type: core.StateUpdateTypeTerm,
-					Term: res.GetTerm(),
-				})
-			}
-
-			// log request result
-			defer func() {
-				result := "vote not granted"
-				if res.VoteGranted {
-					result = "vote granted"
-				}
-
-				logger.WarnKV(ctx, result,
-					"voter", raftID,
-					"term", term,
-					"res_term", res.GetTerm(),
-					"last_entry_index", lastEntry.Index,
-					"last_entry_term", lastEntry.Term,
-				)
-			}()
-
-			if res.VoteGranted {
-				select {
-				case responseChan <- struct{}{}:
-				case <-done: // ignore the rest of the responses
-				}
-			}
-
-			return nil
-		})
-	}
-
-	go func() {
-		_ = errG.Wait()
-		close(responseChan)
-	}()
-
-	votes := uint32(1)
-	for range responseChan {
-		votes++
-
-		// If candidate state has changed, this means a new leader has sent an AppendEntries or
-		// another candidate has as collected our vote
-		state := rf.state.GetState()
-		if state != core.Candidate {
-			logger.WarnKV(ctx, "stop election due to state change", "state", state)
-			close(done)
-			break
-		}
-
-		if votes == rf.quorum {
-			logger.WarnKV(ctx, "election won")
-
-			rf.sendStateUpdate(core.StateUpdate{
-				Type:  core.StateUpdateTypeState,
-				State: core.Leader,
-			})
-
-			close(done)
-			break
-		}
-	}
-}
-
-func (rf *RaftState) getLastEntry(ctx context.Context) (*core.Entry, error) {
-	lastEntry, err := rf.entryStore.Last(ctx)
-	if err != nil {
-		if !errors.Is(err, core.ErrNotFound) {
-			return nil, err
-		}
-		lastEntry = &core.Entry{} // no entries yet (i.e. initial state)
-	}
-	return lastEntry, nil
 }

@@ -5,11 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/catalystgo/logger/logger"
 	"github.com/escalopa/raft-kv/internal/core"
-	"github.com/escalopa/raft-kv/internal/service/internal"
 	desc "github.com/escalopa/raft-kv/pkg/raft"
-	"github.com/pkg/errors"
+	"github.com/puzpuzpuz/xsync/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -49,51 +47,60 @@ type (
 	Config interface {
 		// general
 
+		GetInitialDelay() time.Duration
 		GetCommitPeriod() time.Duration
 		GetAppendEntriesTimeout() time.Duration
 		GetRequestVoteTimeout() time.Duration
-
-		// follower
-
-		GetElectionDelay() time.Duration
 		GetElectionTimeout() time.Duration
 
 		// leader
 
 		GetHeartbeatPeriod() time.Duration
 		GetLeaderStalePeriod() time.Duration
-		GetLeaderCheckStepDownPeriod() time.Duration
+		GetLeaderCheckStalePeriod() time.Duration
 	}
 )
 
-type RaftState struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+type (
+	leaderState struct {
+		// nextIndex index for each server of the next log entry to send to that server
+		// initialized to leader last log index + 1
+		nextIndex *xsync.MapOf[core.ServerID, uint64]
 
-	config Config
+		// matchIndex index for each server of highest log entry known to be replicated on server
+		// initialized to 0, increases monotonically
+		matchIndex *xsync.MapOf[core.ServerID, uint64]
 
-	raftID core.ServerID
+		// lastHeartbeat map of serverID and last heartbeat timestamp sent
+		// used to detect if we are able to contact the majority of the servers in the cluster
+		// if we can't contact the majority of the servers, we should step down
+		lastHeartbeat *xsync.MapOf[core.ServerID, time.Time]
+	}
 
-	state *internal.StateFacade
+	Raft struct {
+		ctx context.Context
 
-	quorum uint32
+		config Config
 
-	appendEntriesChan chan *appendEntriesRequest
-	requestVoteChan   chan *requestVoteRequest
-	replicateChan     chan *replicateRequest
+		raftID core.ServerID
 
-	stateUpdateChan chan<- *core.StateUpdate
+		state  *raftState
+		leader *leaderState
 
-	servers map[core.ServerID]desc.RaftServiceClient
+		quorum uint32
 
-	heartbeat chan struct{}
+		requestChan chan interface{}
 
-	entryStore EntryStore
-	stateStore StateStore
-	kvStore    KVStore
+		servers map[core.ServerID]desc.RaftServiceClient
 
-	wg sync.WaitGroup
-}
+		entryStore EntryStore
+		stateStore StateStore
+		kvStore    KVStore
+
+		shutdownChan chan struct{} // channel to signal the raft state to shut down
+		wg           sync.WaitGroup
+	}
+)
 
 func NewRaftState(
 	ctx context.Context,
@@ -103,109 +110,123 @@ func NewRaftState(
 	entryStore EntryStore,
 	stateStore StateStore,
 	kvStore KVStore,
-) (*RaftState, error) {
-	ctx, cancel := context.WithCancel(ctx)
-
+) (*Raft, error) {
 	serversCount := len(cluster) + 1         // +1 for the current node
 	quorum := uint32((serversCount / 2) + 1) // +1 to get the majority
 
-	rf := &RaftState{
-		ctx:    ctx,
-		cancel: cancel,
+	rf := &Raft{
+		ctx: ctx,
 
 		config: config,
 
 		raftID: raftID,
+		quorum: quorum,
 
 		servers: make(map[core.ServerID]desc.RaftServiceClient),
 
-		appendEntriesChan: make(chan *appendEntriesRequest),
-		requestVoteChan:   make(chan *requestVoteRequest),
-		replicateChan:     make(chan *replicateRequest),
-
-		quorum: quorum,
-
-		heartbeat: make(chan struct{}),
+		requestChan: make(chan interface{}),
 
 		entryStore: entryStore,
 		stateStore: stateStore,
 		kvStore:    kvStore,
+
+		shutdownChan: make(chan struct{}),
 	}
 
-	err := rf.initServers(cluster)
+	err := rf.initCluster(cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	stateUpdateChan := make(chan *core.StateUpdate)
-	rf.stateUpdateChan = stateUpdateChan
-
-	rf.state, err = internal.NewStateFacade(ctx, stateStore, stateUpdateChan)
+	rf.state, err = newRaftState(ctx, stateStore, entryStore)
 	if err != nil {
 		return nil, err
 	}
-
-	leaderFacade := internal.NewLeaderFacade(config, raftID, rf.servers, entryStore, rf.state, stateUpdateChan)
-	rf.state.SetLeader(leaderFacade)
 
 	return rf, nil
 }
 
-func (rf *RaftState) Run() {
+func newLeaderState() *leaderState {
+	return &leaderState{
+		nextIndex:     xsync.NewMapOf[core.ServerID, uint64](),
+		matchIndex:    xsync.NewMapOf[core.ServerID, uint64](),
+		lastHeartbeat: xsync.NewMapOf[core.ServerID, time.Time](),
+	}
+}
+
+func (r *Raft) Run() {
 	runOnce.Do(func() {
-		rf.goFunc(rf.processRaftRPC)
-		rf.goFunc(rf.processReplicate)
-		rf.goFunc(rf.processCommit)
-		rf.goFunc(rf.processElection)
-		logger.ErrorKV(rf.ctx, "raft state started")
+		r.goFunc(r.run)
+		r.goFunc(r.commit)
 	})
 }
 
-func (rf *RaftState) initServers(cluster []core.Node) error {
+func (r *Raft) run() {
+	<-time.After(r.config.GetInitialDelay()) // wait X time before the start of the cluster
+
+	for {
+		select {
+		case <-r.shutdownChan: // stop the raft state
+			return
+		default:
+		}
+
+		switch r.state.GetState() {
+		case FollowerState:
+			r.runFollower()
+		case CandidateState:
+			r.runCandidate()
+		case LeaderState:
+			r.runLeader()
+		}
+	}
+}
+
+func (r *Raft) initCluster(cluster []core.Node) error {
 	for _, node := range cluster {
 		conn, err := grpc.NewClient(node.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return err
 		}
-		rf.servers[node.ID] = desc.NewRaftServiceClient(conn)
+		r.servers[node.ID] = desc.NewRaftServiceClient(conn)
 	}
 	return nil
 }
 
-func (rf *RaftState) Get(ctx context.Context, key string) (string, error) {
-	if !rf.state.IsLeader() {
+func (r *Raft) Get(ctx context.Context, key string) (string, error) {
+	if !r.state.IsLeader() {
 		return "", core.ErrNotLeader
 	}
-	return rf.kvStore.Get(ctx, key)
+	return r.kvStore.Get(ctx, key)
 }
 
-func (rf *RaftState) Set(ctx context.Context, key string, value string) error {
-	if !rf.state.IsLeader() {
+func (r *Raft) Set(ctx context.Context, key string, value string) error {
+	if !r.state.IsLeader() {
 		return core.ErrNotLeader
 	}
 
 	data := []string{core.Set.String(), key, value}
 
 	request := newReplicateRequest(ctx, data)
-	rf.replicateChan <- request
+	r.requestChan <- request
 	return <-request.err
 }
 
-func (rf *RaftState) Del(ctx context.Context, key string) error {
-	if !rf.state.IsLeader() {
+func (r *Raft) Del(ctx context.Context, key string) error {
+	if !r.state.IsLeader() {
 		return core.ErrNotLeader
 	}
 
 	data := []string{core.Del.String(), key}
 
 	request := newReplicateRequest(ctx, data)
-	rf.replicateChan <- request
+	r.requestChan <- request
 	return <-request.err
 }
 
-func (rf *RaftState) AppendEntries(ctx context.Context, req *desc.AppendEntriesRequest) (*desc.AppendEntriesResponse, error) {
+func (r *Raft) AppendEntries(ctx context.Context, req *desc.AppendEntriesRequest) (*desc.AppendEntriesResponse, error) {
 	request := newAppendEntriesRequest(ctx, req)
-	rf.appendEntriesChan <- request
+	r.requestChan <- request
 	select {
 	case res := <-request.res:
 		return res, nil
@@ -214,9 +235,9 @@ func (rf *RaftState) AppendEntries(ctx context.Context, req *desc.AppendEntriesR
 	}
 }
 
-func (rf *RaftState) RequestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
+func (r *Raft) RequestVote(ctx context.Context, req *desc.RequestVoteRequest) (*desc.RequestVoteResponse, error) {
 	request := newRequestVoteRequest(ctx, req)
-	rf.requestVoteChan <- request
+	r.requestChan <- request
 	select {
 	case res := <-request.res:
 		return res, nil
@@ -225,56 +246,28 @@ func (rf *RaftState) RequestVote(ctx context.Context, req *desc.RequestVoteReque
 	}
 }
 
-func (rf *RaftState) Info(ctx context.Context, _ *desc.InfoRequest) (*desc.InfoResponse, error) {
-	lastEntry, err := rf.entryStore.Last(ctx)
-	if err != nil {
-		if !errors.Is(err, core.ErrNotFound) {
-			return nil, err
-		}
-		lastEntry = &core.Entry{} // no entries yet
-	}
-
+func (r *Raft) Info(_ context.Context, _ *desc.InfoRequest) (*desc.InfoResponse, error) {
+	lastLogIndex, lastLogTerm := r.state.GetLastLog()
 	return &desc.InfoResponse{
-		Term:         rf.state.GetTerm(),
-		CommitIndex:  rf.state.GetCommitIndex(),
-		LastApplied:  rf.state.GetLastApplied(),
-		LastLogIndex: lastEntry.Index,
-		LastLogTerm:  lastEntry.Term,
-		State:        rf.state.GetState().String(),
+		Term:         r.state.GetTerm(),
+		CommitIndex:  r.state.GetCommitIndex(),
+		LastApplied:  r.state.GetLastApplied(),
+		LastLogIndex: lastLogIndex,
+		LastLogTerm:  lastLogTerm,
+		State:        r.state.GetState().String(),
 	}, nil
 }
 
-func (rf *RaftState) goFunc(f func()) {
-	rf.wg.Add(1)
+func (r *Raft) goFunc(f func()) {
+	r.wg.Add(1)
 	go func() {
-		defer rf.wg.Done()
+		defer r.wg.Done()
 		f()
 	}()
 }
 
-func (rf *RaftState) sendStateUpdate(update core.StateUpdate) {
-	update.Done = make(chan struct{})
-
-	select {
-	case rf.stateUpdateChan <- &update:
-	case <-rf.ctx.Done():
-	}
-
-	select {
-	case <-update.Done: // wait for the update to be processed
-	case <-rf.ctx.Done():
-	}
-}
-
-func (rf *RaftState) resetElectionTimeout() {
-	select {
-	case rf.heartbeat <- struct{}{}:
-	default: // drop the heartbeat if it's not currently needed (i.e. on election)
-	}
-}
-
-func (rf *RaftState) Close() error {
-	rf.cancel()
-	rf.wg.Wait()
+func (r *Raft) Close() error {
+	close(r.shutdownChan)
+	r.wg.Wait()
 	return nil
 }
