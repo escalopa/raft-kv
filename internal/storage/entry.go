@@ -99,11 +99,11 @@ func (es *EntryStore) Range(ctx context.Context, start, end uint64) (entries []*
 	}
 
 	err = es.db.View(func(txn *badger.Txn) error {
-		size := end - start + 1
-
-		if size <= 0 {
-			return nil // TODO: return an error
+		if end < start {
+			return nil
 		}
+
+		size := end - start + 1
 
 		entries = make([]*core.Entry, 0, size)
 		for i := range size {
