@@ -131,6 +131,12 @@ tasks:
     cmds:
       - docker volume rm catalystgo_raft_data_1 catalystgo_raft_data_2 catalystgo_raft_data_3 catalystgo_raft_data_4 catalystgo_raft_data_5
 
+# app
+
+  send:
+    cmds:
+      - ./send.sh 10000 "localhost:7001,localhost:7002,localhost:7003,localhost:7004,localhost:7005"
+
 # internal
 
   go_files:

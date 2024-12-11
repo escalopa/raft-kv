@@ -142,10 +142,6 @@ func (r *Raft) startElection() <-chan *desc.RequestVoteResponse {
 	return responseChan
 }
 
-const (
-	maxEntriesPerRequest = 1_000 // TODO: make this configurable
-)
-
 func (r *Raft) runLeader() {
 	var (
 		stopChan   = make(chan struct{}) // channel to stop the leader's goroutines
@@ -203,7 +199,7 @@ func (r *Raft) sendHeartbeat(raftID core.ServerID) {
 
 	var (
 		lowerBound, _ = r.leader.nextIndex.Load(raftID)
-		upperBound    = min(lastLogIndex, lowerBound+maxEntriesPerRequest-1) // inclusive
+		upperBound    = min(lastLogIndex, lowerBound+r.config.GetLeaderHeartbeatBatchSize())
 	)
 
 	entries, err := r.entryStore.Range(r.ctx, lowerBound, upperBound)

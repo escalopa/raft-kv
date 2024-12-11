@@ -44,8 +44,9 @@ var (
 	raftElectionTimeoutEnv = envCfg{env: "RAFT_ELECTION_TIMEOUT", def: "300"}
 
 	// leader
-	raftStalePeriod     = envCfg{env: "RAFT_STALE_PERIOD", def: "200"}
-	raftHeartbeatPeriod = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
+	raftStalePeriod        = envCfg{env: "RAFT_STALE_PERIOD", def: "200"}
+	raftHeartbeatPeriod    = envCfg{env: "RAFT_HEARTBEAT_PERIOD", def: "50"}
+	raftHeartbeatBatchSize = envCfg{env: "RAFT_HEARTBEAT_BATCH_SIZE", def: "10000"}
 
 	// db
 	badgerEntryPath = envCfg{env: "BADGER_ENTRY_PATH", def: "/data/entry"}
@@ -55,8 +56,9 @@ var (
 
 type (
 	LeaderConfig struct {
-		StalePeriod     int64
-		HeartbeatPeriod int64
+		StalePeriod        int64
+		HeartbeatPeriod    int64
+		HeartbeatBatchSize uint64
 	}
 
 	RaftConfig struct {
@@ -113,6 +115,10 @@ func (ac *AppConfig) GetLeaderHeartbeatPeriod() time.Duration {
 	return time.Duration(randIn2X(ac.Raft.Leader.HeartbeatPeriod)) * time.Millisecond
 }
 
+func (ac *AppConfig) GetLeaderHeartbeatBatchSize() uint64 {
+	return ac.Raft.Leader.HeartbeatBatchSize
+}
+
 func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 	// Parse RaftID
 	raftIDStr := os.Getenv(raftIDEnv)
@@ -162,6 +168,14 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 		return nil, err
 	}
 
+	heartbeatBatchSize, err := strconv.ParseUint(raftHeartbeatBatchSize.value(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	if heartbeatBatchSize == 0 {
+		return nil, errors.New("RAFT_HEARTBEAT_BATCH_SIZE must be greater than zero")
+	}
+
 	heartbeatPeriod, err := parseTimePeriod(raftHeartbeatPeriod)
 	if err != nil {
 		return nil, err
@@ -190,8 +204,9 @@ func NewAppConfig(ctx context.Context) (*AppConfig, error) {
 			ElectionTimeout: electionTimeout,
 
 			Leader: LeaderConfig{
-				StalePeriod:     stalePeriod,
-				HeartbeatPeriod: heartbeatPeriod,
+				StalePeriod:        stalePeriod,
+				HeartbeatPeriod:    heartbeatPeriod,
+				HeartbeatBatchSize: heartbeatBatchSize,
 			},
 		},
 		Badger: BadgerConfig{

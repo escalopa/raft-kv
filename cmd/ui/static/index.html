@@ -171,7 +171,13 @@
 
     function updateOutput(elementId, data, success) {
         const outputElement = document.getElementById(elementId);
-        outputElement.value = JSON.stringify(data, null, 2);
+
+        let outputData = JSON.stringify(data, null, 2)
+        if (outputData === "{}" && !success) {
+            outputData = outputElement.value
+        }
+
+        outputElement.value = outputData;
         outputElement.style.height = "1px";
         outputElement.style.height = (25+outputElement.scrollHeight)+"px";
         if (success) {
@@ -181,10 +187,6 @@
             outputElement.classList.add('border-danger');
             outputElement.classList.remove('border-success');
         }
-    }
-
-    function textAreaAdjust(element) {
-
     }
 
     renderServerControls();

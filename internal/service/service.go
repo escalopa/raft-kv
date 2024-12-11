@@ -58,6 +58,7 @@ type (
 
 		GetLeaderStalePeriod() time.Duration
 		GetLeaderHeartbeatPeriod() time.Duration
+		GetLeaderHeartbeatBatchSize() uint64
 	}
 )
 
