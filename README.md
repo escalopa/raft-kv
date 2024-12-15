@@ -4,11 +4,18 @@ A **raft** based **key-value** store.
 
 ![UI](./static/demo.png)
 
+## Motivation 💫
+
+- Learn Raft in depth
+
+## Demo ❤️‍🔥
+
+**[YOUTUBE](https://www.youtube.com/)**
+
 ## Prerequisites 📚
 
 - [task](https://taskfile.dev/#/installation)
 - [docker-compose](https://docs.docker.com/compose/install/)
-- [catalystgo](https://github.com/catalystgo/cli)
 
 ## Run 🚀
 

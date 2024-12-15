@@ -49,6 +49,7 @@ for ((i = 1; i <= N; i++)); do
     echo "error occurred while sending message $i. HTTP Status: $RESPONSE"
     exit 1
   fi
+  echo -ne "\rsend $i request"
 done
 
-echo "done"
+echo -ne "\ndone\n"

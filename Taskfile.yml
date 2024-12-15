@@ -17,6 +17,7 @@ tasks:
   ui:
     cmds:
       - go run ./cmd/ui/main.go
+    silent: true
 
   mock:
     cmds:
@@ -135,8 +136,9 @@ tasks:
 
   send:
     cmds:
-      - ./send.sh 10000 "localhost:7001,localhost:7002,localhost:7003,localhost:7004,localhost:7005"
-
+      - ./send.sh {{default 100 .N}} "localhost:7001,localhost:7002,localhost:7003,localhost:7004,localhost:7005"
+    silent: true
+      
 # internal
 
   go_files:
