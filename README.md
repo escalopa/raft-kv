@@ -10,7 +10,7 @@ A **raft** based **key-value** store.
 
 ## Demo ❤️‍🔥
 
-**[YOUTUBE](https://www.youtube.com/)**
+**[YOUTUBE](https://youtu.be/01LryhHyKDk)**
 
 ## Prerequisites 📚
 
