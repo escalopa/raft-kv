@@ -64,3 +64,7 @@ task ui
 | BADGER_ENTRY_PATH           | Filesystem path for storing the Raft log entries                                                                         | /data/entry |
 | BADGER_STATE_PATH           | Filesystem path for storing the Raft protocol state                                                                      | /data/state |
 | BADGER_KV_PATH              | Filesystem path for storing the key-value state machine data                                                             | /data/kv    |  
+
+---
+
+![Alt](https://repobeats.axiom.co/api/embed/e5c91d2fd6b283c642a7088217bb805553f0b974.svg "analytics-image")
