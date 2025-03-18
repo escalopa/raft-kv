@@ -1,5 +1,10 @@
 # raft-kv 🗃️
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/escalopa/raft-kv)](https://goreportcard.com/report/github.com/escalopa/raft-kv)
+[![GitHub issues](https://img.shields.io/github/issues/escalopa/raft-kv.svg)](https://github.com/escalopa/raft-kv/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/escalopa/raft-kv.svg)](https://github.com/escalopa/raft-kv/pulls)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A **raft** based **key-value** store.
 
 ![UI](./static/demo.png)
